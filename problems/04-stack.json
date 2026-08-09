@@ -1,0 +1,94 @@
+{
+  "chapter": "第 4 章 · 栈",
+  "problems": [
+    {
+      "id": "valid-parentheses",
+      "title": "20. 有效的括号",
+      "difficulty": "简单",
+      "description": "给定一个只包括 `'('`、`')'`、`'{'`、`'}'`、`'['`、`']'` 的字符串 `s`，判断字符串是否有效。\n\n有效字符串需满足：\n\n1. 左括号必须用相同类型的右括号闭合。\n2. 左括号必须以正确的顺序闭合。\n3. 每个右括号都有一个对应的相同类型的左括号。\n\n**注意**：空字符串视为有效字符串，应返回 `true`。",
+      "examples": [
+        {"input": "s = \"()\"", "output": "true"},
+        {"input": "s = \"()[]{}\"", "output": "true"},
+        {"input": "s = \"(]\"", "output": "false"},
+        {"input": "s = \"([)]\"", "output": "false"},
+        {"input": "s = \"{[]}\"", "output": "true"}
+      ],
+      "entry": "isValid",
+      "starter": "class Solution:\n    def isValid(self, s: str) -> bool:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": ["()"], "expected": true},
+        {"args": ["()[]{}"], "expected": true},
+        {"args": ["(]"], "expected": false},
+        {"args": ["([)]"], "expected": false},
+        {"args": ["{[]}"], "expected": true},
+        {"args": ["(("], "expected": false},
+        {"args": [""], "expected": true}
+      ],
+      "compare": "exact",
+      "hints": [
+        "括号匹配具有「最后打开的括号最先闭合」的特点，这正好对应栈的后进先出（LIFO）结构。",
+        "遍历字符串：遇到左括号就压栈；遇到右括号就看栈顶是不是与之匹配的左括号。",
+        "遇到右括号时栈为空，或者遍历结束后栈非空，都说明字符串无效。",
+        "可以用哈希表建立「右括号 → 左括号」的映射，让匹配判断更简洁。"
+      ],
+      "explanation": "**核心思路：栈**\n\n括号匹配的本质是「最近打开的左括号必须最先被闭合」，即**后进先出**，这正是栈的天然应用场景。\n\n**算法步骤**\n1. 准备一个空栈，以及一个「右括号 → 左括号」的映射表。\n2. 遍历字符串 `s` 中的每个字符 `c`：\n   - 若 `c` 是左括号，压入栈中；\n   - 若 `c` 是右括号：\n     - 栈为空，说明没有对应的左括号，返回 `false`；\n     - 栈顶元素与映射表中 `c` 对应的左括号不同，说明类型不匹配，返回 `false`；\n     - 否则弹出栈顶，继续遍历。\n3. 遍历结束后，栈为空则返回 `true`，否则说明有未闭合的左括号，返回 `false`。\n\n**边界情况**：空字符串不会进入循环，栈天然为空，直接返回 `true`，符合题目约定。\n\n**复杂度**：时间 O(n)，每个字符最多入栈、出栈一次；空间 O(n)，最坏情况（全是左括号）栈中存 n 个字符。\n\n**参考代码**\n```python\nclass Solution:\n    def isValid(self, s: str) -> bool:\n        pairs = {')': '(', ']': '[', '}': '{'}\n        stack = []\n        for c in s:\n            if c in pairs:\n                if not stack or stack.pop() != pairs[c]:\n                    return False\n            else:\n                stack.append(c)\n        return not stack\n```"
+    },
+    {
+      "id": "eval-rpn",
+      "title": "150. 逆波兰表达式求值",
+      "difficulty": "中等",
+      "description": "给你一个字符串数组 `tokens`，表示一个根据**逆波兰表示法**（后缀表达式）表示的算术表达式，请你计算该表达式的值并返回一个整数。\n\n说明：\n\n- 有效的算符为 `'+'`、`'-'`、`'*'` 和 `'/'`。\n- 每个操作数（运算对象）都可以是一个整数，也可以是另一个逆波兰表达式。\n- **两个整数之间的除法总是向零截断**（例如 `7 / -3 = -2`，`-7 / 3 = -2`）。\n- 表达式中不含除零运算。\n- 输入是一个根据逆波兰表示法表示的算术表达式。\n- 答案及所有中间计算结果可以用 32 位整数表示。",
+      "examples": [
+        {"input": "tokens = [\"2\",\"1\",\"+\",\"3\",\"*\"]", "output": "9", "explanation": "该算式转化为常见的中缀算术表达式为：((2 + 1) * 3) = 9"},
+        {"input": "tokens = [\"4\",\"13\",\"5\",\"/\",\"+\"]", "output": "6", "explanation": "该算式转化为常见的中缀算术表达式为：(4 + (13 / 5)) = 6"},
+        {"input": "tokens = [\"10\",\"6\",\"9\",\"3\",\"+\",\"-11\",\"*\",\"/\",\"*\",\"17\",\"+\",\"5\",\"+\"]", "output": "22", "explanation": "该算式转化为常见的中缀算术表达式为：((10 * (6 / ((9 + 3) * -11))) + 17) + 5 = 22"}
+      ],
+      "entry": "evalRPN",
+      "starter": "class Solution:\n    def evalRPN(self, tokens: list[str]) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [["2", "1", "+", "3", "*"]], "expected": 9},
+        {"args": [["4", "13", "5", "/", "+"]], "expected": 6},
+        {"args": [["10", "6", "9", "3", "+", "-11", "*", "/", "*", "17", "+", "5", "+"]], "expected": 22},
+        {"args": [["18"]], "expected": 18}
+      ],
+      "compare": "exact",
+      "hints": [
+        "逆波兰表达式的计算顺序也是「先算离运算符最近的两个数」，用栈保存操作数即可。",
+        "遇到数字就压栈；遇到运算符就弹出两个数做运算，再把结果压回栈中。注意先弹出的是右操作数。",
+        "除法要求向零截断：Python 的 `//` 是向下取整（`-7 // 3 == -3`，不符合要求），而 `int(a / b)` 才是向零截断。"
+      ],
+      "explanation": "**核心思路：栈模拟后缀表达式求值**\n\n逆波兰表达式的特点是运算符紧跟在它要操作的两个操作数之后。用栈处理非常自然：\n\n**算法步骤**\n1. 遍历 `tokens` 中的每个 token：\n   - 若是数字（如 `\"4\"`、`\"-11\"`），转成整数压入栈中；\n   - 若是运算符，弹出栈顶两个数：**先弹出的是右操作数 b，后弹出的是左操作数 a**，计算 `a op b` 后将结果压回栈。\n2. 遍历结束后，栈中剩下的唯一元素就是表达式的值。\n\n**关键陷阱：除法向零截断**\n\n题目要求两个整数相除**向零截断**，即 `7 / -3 = -2`、`-7 / 3 = -2`。而 Python 的整除运算符 `//` 是**向下取整**：`-7 // 3 == -3`，与要求不符。因此必须用 `int(a / b)`（先算浮点除法再截断小数部分）来实现向零截断。这是本题最常见的错误点，务必注意。\n\n**边界情况**：`tokens` 只有一个数字时（如 `[\"18\"]`），不进任何运算分支，直接返回栈中该数字即可。\n\n**复杂度**：时间 O(n)，每个 token 处理一次；空间 O(n)，栈中最多存约一半的操作数。\n\n**参考代码**\n```python\nclass Solution:\n    def evalRPN(self, tokens: list[str]) -> int:\n        stack = []\n        for token in tokens:\n            if token == '+':\n                b, a = stack.pop(), stack.pop()\n                stack.append(a + b)\n            elif token == '-':\n                b, a = stack.pop(), stack.pop()\n                stack.append(a - b)\n            elif token == '*':\n                b, a = stack.pop(), stack.pop()\n                stack.append(a * b)\n            elif token == '/':\n                b, a = stack.pop(), stack.pop()\n                stack.append(int(a / b))  # 向零截断，不能写成 a // b\n            else:\n                stack.append(int(token))\n        return stack[0]\n```"
+    },
+    {
+      "id": "simplify-path",
+      "title": "71. 简化路径",
+      "difficulty": "中等",
+      "description": "给你一个字符串 `path`，表示指向某一文件或目录的 Unix 风格**绝对路径**（以 `'/'` 开头），请你将其**转化为更加简洁的规范路径**。\n\n在 Unix 风格的文件系统中规则如下：\n\n- 一个点 `'.'` 表示当前目录本身。\n- 两个点 `'..'` 表示将目录切换到上一级（指向父目录）。\n- 任意多个连续的斜杠（即 `'//'`）都被视为单个斜杠 `'/'`。\n- 任何其他格式的点（例如 `'...'`、`'....'`）均被视为有效的文件/目录名称。\n\n返回的**规范路径**必须遵循下述格式：\n\n- 始终以斜杠 `'/'` 开头。\n- 两个目录名之间必须只有一个斜杠 `'/'`。\n- 最后一个目录名（如果存在）**不能以** `'/'` 结尾。\n- 此外，路径仅包含从根目录到目标文件或目录的路径上的目录名（即不含 `'.'` 或 `'..'`）。\n\n返回简化后得到的规范路径。",
+      "examples": [
+        {"input": "path = \"/home/\"", "output": "\"/home\"", "explanation": "应删除末尾的斜杠。"},
+        {"input": "path = \"/home//foo/\"", "output": "\"/home/foo\"", "explanation": "多个连续的斜杠被替换为单个斜杠。"},
+        {"input": "path = \"/home/user/Documents/../Pictures\"", "output": "\"/home/user/Pictures\"", "explanation": "两个点 '..' 表示上一级目录，即返回 /home/user/Pictures。"},
+        {"input": "path = \"/../\"", "output": "\"/\"", "explanation": "从根目录向上一级是不可行的，因为根目录没有上一级。"},
+        {"input": "path = \"/.../a/../b/c/../d/./\"", "output": "\"/.../b/d\"", "explanation": "'...' 在这个问题中是有效的目录名。"}
+      ],
+      "entry": "simplifyPath",
+      "starter": "class Solution:\n    def simplifyPath(self, path: str) -> str:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": ["/home/"], "expected": "/home"},
+        {"args": ["/home//foo/"], "expected": "/home/foo"},
+        {"args": ["/home/user/Documents/../Pictures"], "expected": "/home/user/Pictures"},
+        {"args": ["/../"], "expected": "/"},
+        {"args": ["/.../a/../b/c/../d/./"], "expected": "/.../b/d"}
+      ],
+      "compare": "exact",
+      "hints": [
+        "先按 `'/'` 把路径切分成若干段，空串和 `'.'` 都可以直接跳过。",
+        "遇到 `'..'` 时要回退到上一级目录，也就是删掉「最近进入的目录」——这又是一个后进先出的过程，用栈存放目录名。",
+        "在根目录再遇到 `'..'` 时无处可回退，直接忽略即可（栈空时不弹）。",
+        "最后用 `'/'` 把栈中的目录名拼接起来；别忘了栈为空时要返回 `\"/\"`。",
+        "注意只有恰好两个点才是返回上一级，`'...'` 是普通目录名，必须照常入栈。"
+      ],
+      "explanation": "**核心思路：栈维护目录层级**\n\n路径可以按 `'/'` 切分成一段段的目录名。遍历这些段：\n\n- **空串**（由连续斜杠或末尾斜杠产生）和 **`'.'`**：不产生任何效果，跳过；\n- **`'..'`**：需要回退到上一级，即删除最近进入的目录；\n- **其他目录名**（包括 `'...'` 这类多个点的合法名字）：进入下一级目录。\n\n「回退时删除最近进入的目录」正是后进先出，所以用一个栈来保存当前的目录序列即可。\n\n**算法步骤**\n1. 用 `path.split('/')` 切分路径，得到一个字符串列表。\n2. 遍历每一段 `name`：\n   - 若 `name` 为空串或 `'.'`，跳过；\n   - 若 `name` 是 `'..'`，栈非空则弹出栈顶（栈空说明已在根目录，忽略）；\n   - 否则把 `name` 压入栈中。\n3. 返回 `'/' + '/'.join(stack)`；栈为空时结果就是 `\"/\"`，天然满足要求。\n\n**易错点**\n- 只有**恰好两个点**的 `'..'` 才是返回上一级，`'...'`、`'....'` 都是普通目录名，不能特殊处理。\n- 根目录之上没有父目录，`/../` 应返回 `\"/\"` 而不是报错。\n\n**复杂度**：时间 O(n)，路径只被切分和遍历一次；空间 O(n)，栈最多存放全部目录名。\n\n**参考代码**\n```python\nclass Solution:\n    def simplifyPath(self, path: str) -> str:\n        stack = []\n        for name in path.split('/'):\n            if name == '' or name == '.':\n                continue\n            if name == '..':\n                if stack:\n                    stack.pop()\n            else:\n                stack.append(name)\n        return '/' + '/'.join(stack)\n```"
+    }
+  ]
+}

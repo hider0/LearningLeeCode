@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeetCode 刷题训练器</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; height: 100vh;
+         display: flex; flex-direction: column; color: #2c3e50; background: #f5f6fa; }
+  header { background: #2c3e50; color: #fff; padding: 10px 20px; display: flex;
+           align-items: center; justify-content: space-between; }
+  header h1 { font-size: 18px; }
+  header .actions button { margin-left: 8px; }
+  #container { flex: 1; display: flex; overflow: hidden; }
+
+  /* 侧边栏 */
+  #sidebar { width: 260px; background: #fff; border-right: 1px solid #e0e0e0;
+             overflow-y: auto; padding: 10px; flex-shrink: 0; }
+  .chapter { margin-bottom: 6px; }
+  .chapter-title { font-weight: 600; padding: 8px; cursor: pointer; border-radius: 6px;
+                   background: #ecf0f1; user-select: none; }
+  .problem-item { padding: 6px 10px 6px 22px; cursor: pointer; border-radius: 6px;
+                  font-size: 14px; display: flex; gap: 6px; align-items: center; }
+  .problem-item:hover { background: #f0f3f5; }
+  .problem-item.active { background: #d6e9f8; }
+  .status { width: 16px; flex-shrink: 0; }
+  .status.solved { color: #27ae60; }
+  .status.wrong { color: #e74c3c; }
+  .status.todo { color: #bdc3c7; }
+  .diff { font-size: 12px; margin-left: auto; flex-shrink: 0; }
+  .diff.简单 { color: #27ae60; } .diff.中等 { color: #e67e22; } .diff.困难 { color: #e74c3c; }
+
+  /* 主区域 */
+  #main { flex: 1; overflow-y: auto; padding: 20px 28px; }
+  .card { background: #fff; border-radius: 8px; padding: 18px 22px;
+          margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .meta { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .meta h2 { font-size: 20px; }
+  .tag { font-size: 12px; background: #ecf0f1; border-radius: 10px; padding: 2px 10px; }
+  .desc { white-space: pre-wrap; line-height: 1.7; }
+  .example { background: #f8f9fa; border-left: 3px solid #3498db; padding: 8px 12px;
+             margin: 8px 0; font-family: Consolas, monospace; font-size: 13px;
+             white-space: pre-wrap; border-radius: 0 6px 6px 0; }
+  textarea#code { width: 100%; min-height: 260px; font-family: Consolas, "Courier New", monospace;
+                  font-size: 14px; padding: 12px; border: 1px solid #ccc; border-radius: 6px;
+                  resize: vertical; tab-size: 4; line-height: 1.5; }
+  button { background: #3498db; color: #fff; border: none; border-radius: 6px;
+           padding: 8px 18px; cursor: pointer; font-size: 14px; }
+  button:hover { background: #2980b9; }
+  button.secondary { background: #95a5a6; }
+  button.secondary:hover { background: #7f8c8d; }
+  button:disabled { background: #bdc3c7; cursor: wait; }
+  .btn-row { margin-top: 10px; display: flex; gap: 10px; }
+
+  /* 判题结果 */
+  .verdict { font-weight: 600; font-size: 16px; margin-bottom: 8px; }
+  .verdict.pass { color: #27ae60; } .verdict.fail { color: #e74c3c; }
+  .case { border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px 12px;
+          margin: 6px 0; font-family: Consolas, monospace; font-size: 13px;
+          white-space: pre-wrap; word-break: break-all; }
+  .case.ok { border-left: 4px solid #27ae60; }
+  .case.bad { border-left: 4px solid #e74c3c; }
+  .prints { background: #2c3e50; color: #2ecc71; padding: 10px; border-radius: 6px;
+            font-family: Consolas, monospace; font-size: 13px; white-space: pre-wrap;
+            margin-top: 8px; }
+
+  /* 讲解与追问 */
+  .explanation { display: none; }
+  .chat-log { max-height: 320px; overflow-y: auto; border: 1px solid #e0e0e0;
+              border-radius: 6px; padding: 10px; margin-bottom: 10px; background: #fafbfc; }
+  .chat-q { background: #d6e9f8; border-radius: 8px; padding: 6px 12px; margin: 6px 0 6px 40px; }
+  .chat-a { background: #eafaf1; border-radius: 8px; padding: 6px 12px; margin: 6px 40px 6px 0;
+            white-space: pre-wrap; line-height: 1.6; }
+  .chat-meta { font-size: 11px; color: #95a5a6; }
+  .ask-row { display: flex; gap: 8px; }
+  .ask-row input { flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; }
+
+  code, .md-code { background: #f0f0f0; border-radius: 4px; padding: 1px 5px;
+                   font-family: Consolas, monospace; font-size: 90%; }
+  pre.md-pre { background: #f8f9fa; border: 1px solid #e8e8e8; border-radius: 6px;
+               padding: 10px; overflow-x: auto; margin: 8px 0;
+               font-family: Consolas, monospace; font-size: 13px; line-height: 1.5; }
+
+  table.wrong-table { width: 100%; border-collapse: collapse; }
+  table.wrong-table th, table.wrong-table td { padding: 8px 10px; text-align: left;
+                                               border-bottom: 1px solid #eee; font-size: 14px; }
+  table.wrong-table tr:hover { background: #f6f9fc; cursor: pointer; }
+  .empty { color: #95a5a6; padding: 30px; text-align: center; }
+  #welcome { text-align: center; padding: 60px 20px; color: #7f8c8d; }
+  .llm-badge { font-size: 12px; color: #bdc3c7; align-self: center; margin-right: 6px; }
+  .llm-badge.on { color: #2ecc71; }
+  .llm-badge.warn { color: #e67e22; }
+  .diagnosis-box { border: 1px solid #d6e9f8; background: #f4f9fd; border-radius: 6px;
+                   padding: 12px 16px; margin-top: 10px; white-space: pre-wrap;
+                   line-height: 1.7; font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>LeetCode 刷题训练器</h1>
+  <div class="actions">
+    <span id="llm-badge" class="llm-badge">AI 状态查询中…</span>
+    <button class="secondary" onclick="showWrong()">错题本</button>
+    <button class="secondary" onclick="loadChapters()">刷新状态</button>
+  </div>
+</header>
+<div id="container">
+  <div id="sidebar"></div>
+  <div id="main"><div id="welcome">← 从左侧选择一道题目开始练习</div></div>
+</div>
+
+<script>
+const state = { problem: null, submitted: false };
+const STATUS_ICON = { solved: "✓", wrong: "✗", todo: "○" };
+
+async function api(path, body) {
+  const opts = body === undefined ? {} : {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+  const resp = await fetch(path, opts);
+  return resp.json();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/* 轻量 Markdown：代码块、行内代码、加粗 */
+function md(text) {
+  let html = escapeHtml(text);
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g,
+    (_, lang, code) => `<pre class="md-pre">${code.replace(/\n$/, "")}</pre>`);
+  html = html.replace(/`([^`\n]+)`/g, '<code class="md-code">$1</code>');
+  html = html.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+  return html;
+}
+
+/* ---------------- 侧边栏 ---------------- */
+
+async function loadChapters() {
+  const chapters = await api("/api/chapters");
+  const bar = document.getElementById("sidebar");
+  bar.innerHTML = "";
+  for (const ch of chapters) {
+    const div = document.createElement("div");
+    div.className = "chapter";
+    const solved = ch.problems.filter(p => p.status === "solved").length;
+    div.innerHTML = `<div class="chapter-title">${escapeHtml(ch.chapter)}
+      <span style="float:right;font-weight:normal;font-size:12px;">${solved}/${ch.problems.length}</span></div>`;
+    const list = document.createElement("div");
+    for (const p of ch.problems) {
+      const item = document.createElement("div");
+      item.className = "problem-item" + (state.problem && state.problem.id === p.id ? " active" : "");
+      item.innerHTML = `<span class="status ${p.status}">${STATUS_ICON[p.status]}</span>
+        <span>${escapeHtml(p.title)}</span><span class="diff ${p.difficulty}">${p.difficulty}</span>`;
+      item.onclick = () => openProblem(p.id);
+      list.appendChild(item);
+    }
+    div.appendChild(list);
+    bar.appendChild(div);
+  }
+}
+
+/* ---------------- 题目页 ---------------- */
+
+async function openProblem(id) {
+  const p = await api("/api/problem?id=" + encodeURIComponent(id));
+  if (p.error) return;
+  state.problem = p;
+  state.submitted = false;
+
+  const examples = (p.examples || []).map(e =>
+    `<div class="example">输入：${escapeHtml(e.input)}\n输出：${escapeHtml(e.output)}` +
+    (e.explanation ? `\n解释：${escapeHtml(e.explanation)}` : "") + "</div>").join("");
+
+  document.getElementById("main").innerHTML = `
+    <div class="card">
+      <div class="meta">
+        <h2>${escapeHtml(p.title)}</h2>
+        <span class="tag">${escapeHtml(p.chapter)}</span>
+        <span class="tag diff ${p.difficulty}">${p.difficulty}</span>
+      </div>
+      <div class="desc">${md(p.description)}</div>
+      ${examples}
+    </div>
+    <div class="card">
+      <h3>代码（Python）</h3>
+      <textarea id="code" spellcheck="false">${escapeHtml(p.starter)}</textarea>
+      <div class="btn-row">
+        <button id="btn-submit" onclick="submitCode()">提交判题</button>
+        <button class="secondary" onclick="resetCode()">重置代码</button>
+      </div>
+      <div id="result"></div>
+    </div>
+    <div class="card explanation" id="explanation">
+      <h3>题目讲解</h3>
+      <div class="desc">${md(p.explanation || "暂无讲解")}</div>
+      <div id="hints"></div>
+    </div>
+    <div class="card">
+      <h3>追问（不明之处继续提问）</h3>
+      <div class="chat-log" id="chat-log"><div class="empty">提交判题后，可在此针对本题继续追问</div></div>
+      <div class="ask-row">
+        <input id="ask-input" placeholder="例如：为什么这里要用哈希表？" onkeydown="if(event.key==='Enter')ask()">
+        <button id="btn-ask" onclick="ask()">提问</button>
+      </div>
+    </div>`;
+
+  document.getElementById("code").addEventListener("keydown", function (e) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const s = this.selectionStart;
+      this.value = this.value.slice(0, s) + "    " + this.value.slice(this.selectionEnd);
+      this.selectionStart = this.selectionEnd = s + 4;
+    }
+  });
+
+  loadNotes();
+  loadChapters();
+}
+
+function resetCode() {
+  if (state.problem) document.getElementById("code").value = state.problem.starter;
+}
+
+/* ---------------- 判题 ---------------- */
+
+async function submitCode() {
+  const btn = document.getElementById("btn-submit");
+  btn.disabled = true; btn.textContent = "判题中…";
+  const code = document.getElementById("code").value;
+  try {
+    const r = await api("/api/submit", { id: state.problem.id, code });
+    renderResult(r);
+    state.submitted = true;
+    document.getElementById("explanation").style.display = "block";
+    renderHints();
+  } finally {
+    btn.disabled = false; btn.textContent = "提交判题";
+  }
+  loadChapters();
+}
+
+function renderHints() {
+  const hints = state.problem.hints || [];
+  document.getElementById("hints").innerHTML = hints.length
+    ? "<h4 style='margin-top:10px'>提示</h4><ol>" +
+      hints.map(h => `<li>${md(h)}</li>`).join("") + "</ol>" : "";
+}
+
+function renderResult(r) {
+  const box = document.getElementById("result");
+  let html = "";
+  if (r.fatal) {
+    html = `<div class="verdict fail">✗ 判题失败</div><div class="case bad">${escapeHtml(r.fatal)}</div>`;
+  } else if (r.compile_error) {
+    html = `<div class="verdict fail">✗ 编译/运行错误</div><div class="case bad">${escapeHtml(r.compile_error)}</div>`;
+  } else if (r.results) {
+    html = r.passed
+      ? `<div class="verdict pass">✓ 恭喜，全部测试通过！已自动移出错题本。</div>`
+      : `<div class="verdict fail">✗ 未通过，已记入错题本。</div>`;
+    html += r.results.map((c, i) => {
+      const body = c.error
+        ? `运行错误：${c.error}`
+        : `输入：${JSON.stringify(c.args)}\n期望：${JSON.stringify(c.expected)}\n实际：${JSON.stringify(c.got)}`;
+      return `<div class="case ${c.ok ? "ok" : "bad"}">用例 ${i + 1} ${c.ok ? "✓" : "✗"}\n${escapeHtml(body)}</div>`;
+    }).join("");
+  }
+  if (r.prints && r.prints.trim()) {
+    html += `<div>你的 print 输出：</div><div class="prints">${escapeHtml(r.prints)}</div>`;
+  }
+  if (!r.passed && (r.fatal || r.compile_error || r.results)) {
+    html += `<div class="btn-row"><button id="btn-diagnose" onclick="diagnose()">AI 诊断我的思路</button></div>
+             <div id="diagnosis"></div>`;
+  }
+  box.innerHTML = html;
+}
+
+/* ---------------- AI 思路诊断 ---------------- */
+
+async function diagnose() {
+  const btn = document.getElementById("btn-diagnose");
+  btn.disabled = true; btn.textContent = "诊断中…";
+  try {
+    const r = await api("/api/diagnose", {
+      id: state.problem.id,
+      code: document.getElementById("code").value,
+    });
+    const srcTag = r.source === "ai" ? "AI 诊断" : "本地粗略诊断";
+    document.getElementById("diagnosis").innerHTML =
+      `<div class="diagnosis-box">${md(r.diagnosis || r.error || "诊断失败")}` +
+      `<div class="chat-meta">${srcTag} · 已记入本题笔记</div></div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "AI 诊断我的思路";
+  }
+}
+
+/* ---------------- LLM 配置状态（只显示脱敏信息） ---------------- */
+
+async function loadLlmStatus() {
+  try {
+    const s = await api("/api/llm-status");
+    const el = document.getElementById("llm-badge");
+    if (s.configured) {
+      el.className = "llm-badge on" + (s.https ? "" : " warn");
+      el.textContent = `AI 已配置 ${s.key_hint} @ ${s.endpoint_host}` +
+                       (s.https ? "" : "（非 HTTPS，谨慎使用）");
+      el.title = "Key 仅保存在本地 config.json / 环境变量中，请求只发往你配置的接口";
+    } else {
+      el.className = "llm-badge";
+      el.textContent = "AI 未配置";
+      el.title = "复制 config.example.json 为 config.json，填入 API Key 后重启服务即可启用 AI 答疑与思路诊断";
+    }
+  } catch (e) { /* 状态查询失败不影响使用 */ }
+}
+
+/* ---------------- 追问 ---------------- */
+
+async function loadNotes() {
+  const { notes } = await api("/api/notes?problem_id=" + encodeURIComponent(state.problem.id));
+  const log = document.getElementById("chat-log");
+  if (!notes || !notes.length) return;
+  log.innerHTML = "";
+  for (const n of notes) appendChat(n.q, n.a, n.source, n.time);
+  log.scrollTop = log.scrollHeight;
+}
+
+function appendChat(q, a, source, time) {
+  const log = document.getElementById("chat-log");
+  const empty = log.querySelector(".empty");
+  if (empty) empty.remove();
+  const srcTag = source === "ai" ? "AI" : "本地";
+  log.insertAdjacentHTML("beforeend",
+    `<div class="chat-q">${escapeHtml(q)}</div>` +
+    `<div class="chat-a">${md(a)}<div class="chat-meta">${srcTag} · ${time || ""}</div></div>`);
+}
+
+async function ask() {
+  const input = document.getElementById("ask-input");
+  const q = input.value.trim();
+  if (!q) return;
+  const btn = document.getElementById("btn-ask");
+  btn.disabled = true; btn.textContent = "思考中…";
+  try {
+    const r = await api("/api/ask", {
+      id: state.problem.id, question: q,
+      code: document.getElementById("code").value,
+    });
+    appendChat(q, r.answer || r.error, r.source, new Date().toLocaleString());
+    input.value = "";
+  } finally {
+    btn.disabled = false; btn.textContent = "提问";
+    document.getElementById("chat-log").scrollTop = 1e9;
+  }
+}
+
+/* ---------------- 错题本 ---------------- */
+
+async function showWrong() {
+  const { wrong } = await api("/api/wrong");
+  const main = document.getElementById("main");
+  state.problem = null;
+  if (!wrong.length) {
+    main.innerHTML = `<div class="card"><h2>错题本</h2><div class="empty">暂无错题，继续保持！</div></div>`;
+    return;
+  }
+  const rows = wrong.map(w => `
+    <tr onclick="openProblem('${w.id}')">
+      <td>${escapeHtml(w.title)}</td><td>${escapeHtml(w.chapter)}</td>
+      <td><span class="diff ${w.difficulty}">${w.difficulty}</span></td>
+      <td>${w.attempts} 次</td><td>${escapeHtml(w.time)}</td>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+          title="${escapeHtml(w.last_error || "")}">${escapeHtml(w.last_error || "")}</td>
+    </tr>`).join("");
+  main.innerHTML = `<div class="card"><h2>错题本（${wrong.length}）</h2>
+    <p style="color:#7f8c8d;margin:6px 0 12px;">点击任意一行回到该题重新作答，通过后自动移出。</p>
+    <table class="wrong-table">
+      <tr><th>题目</th><th>章节</th><th>难度</th><th>错误次数</th><th>最近提交</th><th>最近错误</th></tr>
+      ${rows}</table></div>`;
+  loadChapters();
+}
+
+loadChapters();
+loadLlmStatus();
+</script>
+</body>
+</html>

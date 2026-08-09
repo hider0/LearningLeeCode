@@ -1,0 +1,85 @@
+{
+  "chapter": "第 6 章 · 动态规划",
+  "problems": [
+    {
+      "id": "climbing-stairs",
+      "title": "70. 爬楼梯",
+      "difficulty": "简单",
+      "description": "假设你正在爬楼梯。需要 `n` 阶你才能到达楼顶。\n\n每次你可以爬 `1` 或 `2` 个台阶。你有多少种不同的方法可以爬到楼顶呢？",
+      "examples": [
+        {"input": "n = 2", "output": "2", "explanation": "有两种方法可以爬到楼顶：1. 1 阶 + 1 阶；2. 2 阶。"},
+        {"input": "n = 3", "output": "3", "explanation": "有三种方法可以爬到楼顶：1. 1 阶 + 1 阶 + 1 阶；2. 1 阶 + 2 阶；3. 2 阶 + 1 阶。"}
+      ],
+      "entry": "climbStairs",
+      "starter": "class Solution:\n    def climbStairs(self, n: int) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [1], "expected": 1},
+        {"args": [2], "expected": 2},
+        {"args": [3], "expected": 3},
+        {"args": [5], "expected": 8},
+        {"args": [10], "expected": 89}
+      ],
+      "compare": "exact",
+      "hints": [
+        "爬到第 n 阶的最后一步，要么是从第 n-1 阶爬 1 阶上来的，要么是从第 n-2 阶爬 2 阶上来的。",
+        "设 f(n) 为爬到第 n 阶的方法数，则 f(n) = f(n-1) + f(n-2)，这正是斐波那契数列。",
+        "递归会重复计算大量子问题，改用两个变量滚动递推可以把空间降到 O(1)。"
+      ],
+      "explanation": "**核心思路：递推（斐波那契数列）**\n\n要爬到第 n 阶，最后一步只有两种可能：\n- 从第 n-1 阶爬 1 阶上来；\n- 从第 n-2 阶爬 2 阶上来。\n\n因此设 f(n) 表示爬到第 n 阶的不同方法数，有状态转移方程：\n\n**f(n) = f(n-1) + f(n-2)**，边界条件 f(1) = 1，f(2) = 2。\n\n这就是错位一位的斐波那契数列。\n\n**算法步骤**\n1. 若 n <= 2，直接返回 n。\n2. 用两个变量 a = f(1) = 1、b = f(2) = 2 滚动递推，迭代 n-2 次后 b 即为 f(n)。\n\n**为什么不直接递归**：朴素递归会反复计算相同的子问题，时间复杂度 O(2ⁿ)；递推每个状态只算一次。\n\n**复杂度**：时间 O(n)，空间 O(1)。\n\n**参考代码**\n```python\nclass Solution:\n    def climbStairs(self, n):\n        if n <= 2:\n            return n\n        a, b = 1, 2\n        for _ in range(n - 2):\n            a, b = b, a + b\n        return b\n```"
+    },
+    {
+      "id": "house-robber",
+      "title": "198. 打家劫舍",
+      "difficulty": "中等",
+      "description": "你是一个专业的小偷，计划偷窃沿街的房屋。每间房内都藏有一定的现金，影响你偷窃的**唯一制约因素**就是相邻的房屋装有相互连通的防盗系统，**如果两间相邻的房屋在同一晚上被小偷闯入，系统会自动报警**。\n\n给定一个代表每个房屋存放金额的非负整数数组 `nums`，计算你**不触动警报装置的情况下**，一夜之内能够偷窃到的最高金额。",
+      "examples": [
+        {"input": "nums = [1,2,3,1]", "output": "4", "explanation": "偷窃第 1 间房屋（金额 = 1），然后偷窃第 3 间房屋（金额 = 3），偷窃到的最高金额 = 1 + 3 = 4。"},
+        {"input": "nums = [2,7,9,3,1]", "output": "12", "explanation": "偷窃第 1、3、5 间房屋，偷窃到的最高金额 = 2 + 9 + 1 = 12。"}
+      ],
+      "entry": "rob",
+      "starter": "class Solution:\n    def rob(self, nums: list[int]) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[1, 2, 3, 1]], "expected": 4},
+        {"args": [[2, 7, 9, 3, 1]], "expected": 12},
+        {"args": [[2, 1, 1, 2]], "expected": 4},
+        {"args": [[5]], "expected": 5},
+        {"args": [[1, 3, 1, 3, 100]], "expected": 103}
+      ],
+      "compare": "exact",
+      "hints": [
+        "对第 i 间房屋只有两种选择：偷或不偷。想想这两种选择分别能从哪些前序状态转移而来。",
+        "设 f(i) 表示前 i 间房屋能偷到的最高金额。若偷第 i 间，则第 i-1 间不能偷；若不偷第 i 间，则结果与 f(i-1) 相同。",
+        "状态转移：f(i) = max(f(i-1), f(i-2) + nums[i])。注意 f 只依赖前两项，可以用两个变量滚动优化空间。"
+      ],
+      "explanation": "**核心思路：一维动态规划**\n\n对每间房屋只有「偷」或「不偷」两种选择：\n- **偷第 i 间**：第 i-1 间不能偷，最高金额 = f(i-2) + nums[i]；\n- **不偷第 i 间**：最高金额与只考虑前 i-1 间相同，即 f(i-1)。\n\n设 f(i) 表示考虑前 i 间房屋能偷到的最高金额，状态转移方程：\n\n**f(i) = max(f(i-1), f(i-2) + nums[i])**\n\n边界：f(1) = nums[0]，f(2) = max(nums[0], nums[1])。\n\n**常见陷阱**：贪心策略（例如「每次都跳过较小的相邻房屋」）是错的。如 nums = [2,1,1,2]，正确答案是偷第 1、4 间得 4，而不是偷中间或两端的两间得 3。\n\n**空间优化**：f(i) 只依赖前两项，用两个变量滚动即可，无需开数组。\n\n**复杂度**：时间 O(n)，空间 O(1)。\n\n**参考代码**\n```python\nclass Solution:\n    def rob(self, nums):\n        prev, cur = 0, 0\n        for x in nums:\n            prev, cur = cur, max(cur, prev + x)\n        return cur\n```"
+    },
+    {
+      "id": "coin-change",
+      "title": "322. 零钱兑换",
+      "difficulty": "中等",
+      "description": "给你一个整数数组 `coins`，表示不同面额的硬币；以及一个整数 `amount`，表示总金额。\n\n计算并返回可以凑成总金额所需的**最少的硬币个数**。如果没有任何一种硬币组合能组成总金额，返回 `-1`。\n\n你可以认为每种硬币的数量是**无限**的。",
+      "examples": [
+        {"input": "coins = [1,2,5], amount = 11", "output": "3", "explanation": "11 = 5 + 5 + 1。"},
+        {"input": "coins = [2], amount = 3", "output": "-1"},
+        {"input": "coins = [1], amount = 0", "output": "0"}
+      ],
+      "entry": "coinChange",
+      "starter": "class Solution:\n    def coinChange(self, coins: list[int], amount: int) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[1, 2, 5], 11], "expected": 3},
+        {"args": [[2], 3], "expected": -1},
+        {"args": [[1], 0], "expected": 0},
+        {"args": [[2, 5, 10, 1], 27], "expected": 4},
+        {"args": [[186, 419, 83, 408], 6249], "expected": 20}
+      ],
+      "compare": "exact",
+      "hints": [
+        "这是一个完全背包问题：每种硬币可以用无限次。设 dp[a] 表示凑出金额 a 所需的最少硬币数。",
+        "状态转移：dp[a] = min(dp[a - c] + 1)，其中 c 遍历所有面额且 c <= a。边界 dp[0] = 0。",
+        "用一个比任何可能答案都大的数（如 amount + 1）表示「不可达」，最后若 dp[amount] 仍是该值则返回 -1。",
+        "注意贪心（优先用大面额）不一定正确，例如 coins = [1, 3, 4], amount = 6，贪心得 4+1+1 共 3 枚，而最优是 3+3 共 2 枚。"
+      ],
+      "explanation": "**核心思路：完全背包式一维动态规划**\n\n设 dp[a] 表示凑出金额 a 所需的**最少硬币数**。\n\n最后一枚硬币的面额必为某个 c ∈ coins，那么前 a-c 的金额需要 dp[a-c] 枚，于是：\n\n**dp[a] = min(dp[a - c] + 1)**，对所有满足 c <= a 的面额 c 取最小。\n\n边界：dp[0] = 0（金额为 0 不需要任何硬币）。\n\n**算法步骤**\n1. 初始化 dp 数组长度为 amount + 1，除 dp[0] = 0 外其余填 `amount + 1` 作为「不可达」标记（任何真实答案最多 amount 枚面额 1 的硬币，不可能超过 amount，所以 amount + 1 足够大）。\n2. 从 1 到 amount 依次计算 dp[a]：枚举每个面额 c，若 c <= a，则 dp[a] = min(dp[a], dp[a-c] + 1)。\n3. 若 dp[amount] 仍为不可达标记，返回 -1，否则返回 dp[amount]。\n\n**为什么不能贪心**：优先选大面额不保证最优。例如 coins = [186, 419, 83, 408]、amount = 6249 这类数据正是 LeetCode 用来卡贪心解的用例，DP 才能保证正确。\n\n**复杂度**：时间 O(amount × n)，n 为硬币面额种数；空间 O(amount)。\n\n**参考代码**\n```python\nclass Solution:\n    def coinChange(self, coins, amount):\n        INF = amount + 1\n        dp = [0] + [INF] * amount\n        for a in range(1, amount + 1):\n            for c in coins:\n                if c <= a and dp[a - c] + 1 < dp[a]:\n                    dp[a] = dp[a - c] + 1\n        return dp[amount] if dp[amount] <= amount else -1\n```"
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "chapter": "第 3 章 · 链表",
+  "problems": [
+    {
+      "id": "reverse-linked-list",
+      "title": "206. 反转链表",
+      "difficulty": "简单",
+      "description": "给你单链表的头节点 `head`，请你**反转链表**，并返回反转后的链表头节点。\n\n系统已预置单链表节点定义：`ListNode(val=0, next=None)`，直接使用即可。判题器会自动把数组构造为链表传入，并把返回的链表转回数组比对。",
+      "examples": [
+        {"input": "head = [1,2,3,4,5]", "output": "[5,4,3,2,1]"},
+        {"input": "head = [1,2]", "output": "[2,1]"},
+        {"input": "head = []", "output": "[]"}
+      ],
+      "entry": "reverseList",
+      "starter": "# 系统已预置链表节点定义，可直接使用：\n# class ListNode:\n#     def __init__(self, val=0, next=None):\n#         self.val = val\n#         self.next = next\n\nclass Solution:\n    def reverseList(self, head: ListNode | None) -> ListNode | None:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[1, 2, 3, 4, 5]], "expected": [5, 4, 3, 2, 1]},
+        {"args": [[1, 2]], "expected": [2, 1]},
+        {"args": [[]], "expected": []},
+        {"args": [[9]], "expected": [9]}
+      ],
+      "codec": {"args": ["linked"], "result": "linked"},
+      "compare": "exact",
+      "hints": [
+        "反转的本质是改变每个节点 next 指针的指向，而不是移动节点本身。",
+        "遍历链表时，需要同时记住「前一个节点」和「当前节点」，否则断链后就找不到后面的节点了。",
+        "维护两个指针 prev 和 curr：每次循环把 curr.next 指向 prev，然后 prev 和 curr 各向后走一步。",
+        "循环结束时 curr 为 None，新的头节点就是 prev。注意处理空链表（head 为 None）的情况。"
+      ],
+      "explanation": "**核心思路：双指针迭代，逐个反转指针方向**\n\n反转链表不需要新建节点，只要把每个节点的 `next` 指针从「指向后继」改成「指向前驱」即可。\n\n关键在于：一旦修改 `curr.next`，原来后继节点的引用就丢了，所以在修改前必须先用临时变量 `nxt` 保存 `curr.next`。\n\n**算法步骤**\n1. 初始化 `prev = None`（反转后原头节点变成尾节点，其 next 应为 None），`curr = head`。\n2. 当 `curr` 不为空时循环：\n   - `nxt = curr.next`：先保存后继；\n   - `curr.next = prev`：反转当前节点的指针；\n   - `prev = curr`、`curr = nxt`：两个指针整体后移。\n3. 循环结束后 `prev` 就是新链表的头节点，返回它。\n\n**正确性要点**：空链表时 `curr` 一开始就是 None，循环不执行，直接返回 `prev = None`，边界天然成立。\n\n**复杂度**：时间 O(n)，每个节点访问一次；空间 O(1)，只用了常数个指针。\n\n**参考代码**\n```python\nclass Solution:\n    def reverseList(self, head):\n        prev = None\n        curr = head\n        while curr is not None:\n            nxt = curr.next\n            curr.next = prev\n            prev = curr\n            curr = nxt\n        return prev\n```\n\n**进阶（了解即可）**：也可以用递归实现——先递归反转 `head.next` 之后的部分，再令 `head.next.next = head`、`head.next = None`，时间同为 O(n)，但递归栈占 O(n) 空间。"
+    },
+    {
+      "id": "merge-two-sorted-lists",
+      "title": "21. 合并两个有序链表",
+      "difficulty": "简单",
+      "description": "将两个**升序**链表合并为一个新的**升序**链表并返回。新链表是通过拼接给定的两个链表的所有节点组成的。\n\n系统已预置单链表节点定义：`ListNode(val=0, next=None)`，直接使用即可。判题器会自动把数组构造为链表传入，并把返回的链表转回数组比对。",
+      "examples": [
+        {"input": "list1 = [1,2,4], list2 = [1,3,4]", "output": "[1,1,2,3,4,4]"},
+        {"input": "list1 = [], list2 = []", "output": "[]"},
+        {"input": "list1 = [], list2 = [0]", "output": "[0]"}
+      ],
+      "entry": "mergeTwoLists",
+      "starter": "# 系统已预置链表节点定义，可直接使用：\n# class ListNode:\n#     def __init__(self, val=0, next=None):\n#         self.val = val\n#         self.next = next\n\nclass Solution:\n    def mergeTwoLists(self, list1: ListNode | None, list2: ListNode | None) -> ListNode | None:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[1, 2, 4], [1, 3, 4]], "expected": [1, 1, 2, 3, 4, 4]},
+        {"args": [[], []], "expected": []},
+        {"args": [[], [0]], "expected": [0]},
+        {"args": [[5], [1, 2, 4]], "expected": [1, 2, 4, 5]}
+      ],
+      "codec": {"args": ["linked", "linked"], "result": "linked"},
+      "compare": "exact",
+      "hints": [
+        "两个链表都已排序，每次只需比较两条链当前的头节点，取较小者接到结果链表尾部。",
+        "用一个「哑节点」（dummy）作为结果链表的头，可以免去对第一个节点的特殊处理。",
+        "维护一个 tail 指针始终指向结果链表的末尾，每次把较小的节点接到 tail.next，然后推进对应的链表指针。",
+        "循环结束时必有一条链表先走完，直接把另一条链表的剩余部分整体接到尾部即可。"
+      ],
+      "explanation": "**核心思路：哑节点 + 双指针归并**\n\n这是归并排序中「合并两个有序数组」的链表版本。由于两条链各自升序，当前未合并部分的最小值一定在两条链的当前头节点之一中，每次取较小者接到结果链表尾部即可。\n\n**算法步骤**\n1. 创建哑节点 `dummy`，并用 `tail` 指向它。哑节点让「向空结果链表插入第一个节点」和「向非空链表追加」使用同一套逻辑。\n2. 当 `list1` 和 `list2` 都不为空时循环：比较两者的值，把较小的节点接到 `tail.next`，`tail` 后移，被取用节点的链表指针也后移。\n3. 循环结束后，至多有一条链表还有剩余（已排序且全部大于已合并部分），直接 `tail.next = list1 or list2` 整体接上。\n4. 返回 `dummy.next`，即真正的头节点。\n\n**正确性要点**：一条链为空时循环直接跳过，第 3 步把另一条（可能也为空）接上，因此「一条为空」「两条都空」的边界无需特判。\n\n**复杂度**：时间 O(n + m)，两链节点各访问一次；空间 O(1)，只是重接指针，没有新建节点。\n\n**参考代码**\n```python\nclass Solution:\n    def mergeTwoLists(self, list1, list2):\n        dummy = ListNode()\n        tail = dummy\n        while list1 is not None and list2 is not None:\n            if list1.val <= list2.val:\n                tail.next = list1\n                list1 = list1.next\n            else:\n                tail.next = list2\n                list2 = list2.next\n            tail = tail.next\n        tail.next = list1 if list1 is not None else list2\n        return dummy.next\n```"
+    },
+    {
+      "id": "remove-nth-from-end",
+      "title": "19. 删除链表的倒数第 N 个结点",
+      "difficulty": "中等",
+      "description": "给你一个链表，删除链表的**倒数第** `n` **个结点**，并且返回链表的头结点。\n\n题目保证 `n` 合法，即 `1 <= n <= 链表长度`。\n\n系统已预置单链表节点定义：`ListNode(val=0, next=None)`，直接使用即可。判题器会自动把数组构造为链表传入，并把返回的链表转回数组比对。",
+      "examples": [
+        {"input": "head = [1,2,3,4,5], n = 2", "output": "[1,2,3,5]"},
+        {"input": "head = [1], n = 1", "output": "[]"},
+        {"input": "head = [1,2], n = 1", "output": "[1]"}
+      ],
+      "entry": "removeNthFromEnd",
+      "starter": "# 系统已预置链表节点定义，可直接使用：\n# class ListNode:\n#     def __init__(self, val=0, next=None):\n#         self.val = val\n#         self.next = next\n\nclass Solution:\n    def removeNthFromEnd(self, head: ListNode | None, n: int) -> ListNode | None:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[1, 2, 3, 4, 5], 2], "expected": [1, 2, 3, 5]},
+        {"args": [[1], 1], "expected": []},
+        {"args": [[1, 2], 1], "expected": [1]},
+        {"args": [[1, 2], 2], "expected": [2]}
+      ],
+      "codec": {"args": ["linked"], "result": "linked"},
+      "compare": "exact",
+      "hints": [
+        "朴素做法是先遍历一遍求出长度 L，再删除正数第 L - n + 1 个节点，需要两遍扫描。能否一遍完成？",
+        "「倒数第 n 个」意味着：一个指针走到链表末尾时，它比目标节点**领先 n 步**。",
+        "用快慢指针：fast 先走 n 步，然后 fast 和 slow 一起走；当 fast 到达末尾（None）时，slow 正好停在待删节点处。",
+        "要删除节点需要拿到它的**前驱**，所以让 slow 停在待删节点的前一个位置——从哑节点 dummy 出发，fast 先走 n 步后，fast 为 None 时 slow.next 就是待删节点。删除头节点（n 等于长度）的边界也因此被哑节点统一处理。"
+      ],
+      "explanation": "**核心思路：哑节点 + 快慢指针，一趟扫描定位倒数第 n 个节点**\n\n「倒数第 n 个」不好直接定位，但它等价于：当某个指针到达链表末尾时，另一个落后它 n 步的指针恰好指到目标。这就是快慢指针的经典应用。\n\n**算法步骤**\n1. 创建哑节点 `dummy` 并令 `dummy.next = head`，`slow = fast = dummy`。哑节点使「删除头节点」和「删除中间节点」逻辑统一。\n2. `fast` 先前进 n 步，拉开 n 的距离。\n3. `fast` 与 `slow` 同步前进，直到 `fast` 为 None。此时 `slow` 与末尾相距 n 步，由于从 dummy 出发，`slow.next` 正是倒数第 n 个节点（待删节点），`slow` 是它的前驱。\n4. 执行删除：`slow.next = slow.next.next`。\n5. 返回 `dummy.next`。\n\n**正确性要点**：当 n 等于链表长度时，待删的是头节点，此时 `slow` 停在 dummy 上，删除 `dummy.next` 即可，无需特判；链表只有一个节点且 n = 1 时同样适用，返回 None（对应空链表）。\n\n**复杂度**：时间 O(L)，只扫描一遍；空间 O(1)。\n\n**参考代码**\n```python\nclass Solution:\n    def removeNthFromEnd(self, head, n):\n        dummy = ListNode(0, head)\n        slow = fast = dummy\n        for _ in range(n):\n            fast = fast.next\n        while fast.next is not None:\n            fast = fast.next\n            slow = slow.next\n        slow.next = slow.next.next\n        return dummy.next\n```\n\n注意：上面第 3 步用 `while fast.next is not None` 而不是 `while fast is not None`，是因为 slow 从 dummy 出发，要让 slow 停在待删节点的**前驱**上——fast 先走 n 步后，fast 走到最后一个节点（而非 None）时，slow.next 恰好是倒数第 n 个节点。"
+    }
+  ]
+}
