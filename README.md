@@ -47,8 +47,9 @@ python app.py        # Windows 也可以直接双击“启动刷题训练器.bat
   - 未配置大模型：返回本地预置讲解，同时把问题记入笔记，配置后可获得针对性回答。
   所有问答按题目保存在 `data/progress.json` 中。
 - **AI 思路诊断**：判题失败后可点击“AI 诊断我的思路”，大模型会分析你的代码并输出
-  三段结论——【思路判定】（思路正确 / 有偏差 / 方向错误）、【Bug 定位】（具体到行）、
-  【修改提示】（只给方向，不直接给完整答案）。未配置大模型时回退为基于判题结果的
+  结论。诊断会同时读取本题的标准实现与参考复杂度，对比用户实现的数据结构、控制流程、
+  正确性和性能，而不是只看测试是否通过；通过后也可继续点击“AI 评估复杂度与思路”。
+  未配置大模型时回退为基于判题结果的
   粗略本地诊断（如“X/Y 用例通过，思路大概率正确，检查边界情况”）。
   诊断记录同样保存在笔记中。
 
@@ -60,14 +61,17 @@ python app.py        # Windows 也可以直接双击“启动刷题训练器.bat
 {
   "api_key": "sk-你的密钥",
   "base_url": "https://api.openai.com/v1",
-  "model": "gpt-4o-mini"
+  "model": "gpt-4o-mini",
+  "timeout_seconds": 120
 }
 ```
 
 - 国产模型同样适用，例如 DeepSeek：`base_url` 填 `https://api.deepseek.com/v1`，
   `model` 填 `deepseek-chat`；Kimi：`https://api.moonshot.cn/v1` + `moonshot-v1-8k`。
-- 也可以用环境变量代替配置文件：`OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL`
+- 也可以用环境变量代替配置文件：`OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` /
+  `OPENAI_TIMEOUT_SECONDS`
   （配置文件优先于环境变量）。
+- `timeout_seconds` 控制单次大模型请求的最长等待时间，可配置为 5～600 秒。
 - 不配置 `api_key` 时一切功能照常，只是追问/诊断回退为本地内容。
 
 ### API Key 安全保障

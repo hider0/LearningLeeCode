@@ -13,6 +13,7 @@
 """
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -33,7 +34,9 @@ PROGRESS_FILE = DATA_DIR / "progress.json"
 CONFIG_FILE = ROOT / "config.json"
 RUNNER = ROOT / "runner.py"
 RUN_TIMEOUT = 15   # 单次判题最长秒数
-LLM_TIMEOUT = 60   # 大模型请求最长秒数
+DEFAULT_LLM_TIMEOUT = 90
+MIN_LLM_TIMEOUT = 5
+MAX_LLM_TIMEOUT = 600
 MAX_CODE_CHARS = 100_000
 MAX_QUESTION_CHARS = 4_000
 MAX_REQUEST_BYTES = 256 * 1024
@@ -158,11 +161,20 @@ def load_config():
             cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             pass
+    raw_timeout = (cfg.get("timeout_seconds")
+                   if cfg.get("timeout_seconds") is not None
+                   else os.environ.get("OPENAI_TIMEOUT_SECONDS"))
+    try:
+        timeout_seconds = float(raw_timeout) if raw_timeout is not None else DEFAULT_LLM_TIMEOUT
+    except (TypeError, ValueError):
+        timeout_seconds = DEFAULT_LLM_TIMEOUT
+    timeout_seconds = max(MIN_LLM_TIMEOUT, min(MAX_LLM_TIMEOUT, timeout_seconds))
     return {
         "api_key": cfg.get("api_key") or os.environ.get("OPENAI_API_KEY", ""),
         "base_url": (cfg.get("base_url") or os.environ.get("OPENAI_BASE_URL")
                      or "https://api.openai.com/v1").rstrip("/"),
         "model": cfg.get("model") or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini",
+        "timeout_seconds": timeout_seconds,
     }
 
 # ---------------------------------------------------------------- 判题
@@ -258,20 +270,22 @@ def run_judge(problem, code):
 # ---------------------------------------------------------------- 追问
 
 
-def local_answer(problem, question):
-    """未配置大模型时的本地回退：返回预置讲解与提示，并记录问题。"""
-    parts = [
-        f"（未配置大模型 API Key，无法针对「{question}」实时作答；"
-        "你的问题已记入笔记。以下为本地预置讲解，配置 Key 后可获得针对性回答。）",
-        "【题目讲解】\n" + (problem.get("explanation") or "暂无讲解"),
-    ]
+def local_answer(problem, question, failure_reason=None):
+    """返回预置讲解，并区分未配置与调用失败两种回退原因。"""
+    if failure_reason:
+        notice = (f"（大模型调用失败：{failure_reason}。已回退为本地讲解；"
+                  "你的问题仍已记入笔记，可稍后重试。）")
+    else:
+        notice = (f"（未配置大模型 API Key，无法针对「{question}」实时作答；"
+                  "你的问题已记入笔记。以下为本地预置讲解，配置 Key 后可获得针对性回答。）")
+    parts = [notice, "【题目讲解】\n" + (problem.get("explanation") or "暂无讲解")]
     hints = problem.get("hints") or []
     if hints:
         parts.append("【提示】\n" + "\n".join(f"{i + 1}. {h}" for i, h in enumerate(hints)))
     return "\n\n".join(parts)
 
 
-def call_llm(cfg, messages):
+def call_llm(cfg, messages, max_tokens=384):
     """调用 OpenAI 兼容接口。
 
     安全约定：api_key 只出现在请求头中；抛出的异常信息经过清洗，
@@ -281,13 +295,15 @@ def call_llm(cfg, messages):
         "model": cfg["model"],
         "messages": messages,
         "temperature": 0.3,
+        "max_tokens": max_tokens,
     }).encode("utf-8")
     req = urllib.request.Request(
         cfg["base_url"] + "/chat/completions", data=body,
         headers={"Content-Type": "application/json",
                  "Authorization": "Bearer " + cfg["api_key"]})
     try:
-        with urllib.request.urlopen(req, timeout=LLM_TIMEOUT) as resp:
+        timeout_seconds = cfg.get("timeout_seconds", DEFAULT_LLM_TIMEOUT)
+        with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:300]
@@ -299,26 +315,49 @@ def call_llm(cfg, messages):
         if cfg["api_key"]:
             reason = reason.replace(cfg["api_key"], "[REDACTED]")
         raise RuntimeError(f"网络错误: {reason}") from None
+    except TimeoutError:
+        raise RuntimeError(f"大模型请求超过 {timeout_seconds:g} 秒未完成") from None
     return data["choices"][0]["message"]["content"].strip()
+
+
+def coaching_reference(problem, limit=1800):
+    """移除参考代码但保留算法、复杂度和易错点说明。"""
+    explanation = problem.get("explanation") or ""
+    compact = re.sub(r"```[\s\S]*?```", "", explanation)
+    return compact.strip()[:limit]
+
+
+def reference_implementation(problem):
+    """从题解中提取供诊断对照的标准实现。"""
+    explanation = problem.get("explanation") or ""
+    match = re.search(r"```python\n([\s\S]*?)```", explanation)
+    return match.group(1).strip() if match else ""
 
 
 def ask_llm(cfg, problem, code, question, history):
     """就用户的追问调用大模型。"""
     system = ("你是一位算法教练，正在辅导用户解答 LeetCode 题目。"
               "请用中文回答，结合题目描述和用户的代码，讲解清晰、具体、简洁，"
-              "可以适当给出小例子，但不要直接替用户写完整答案，除非用户明确要求。")
+              "可以适当给出小例子，但不要直接替用户写完整答案，除非用户明确要求。"
+              "回答控制在 220 个中文字符以内，回答完整后立即停止。")
+    reference = coaching_reference(problem, limit=1200)
     context = (
         f"题目：{problem['title']}\n\n{problem['description']}\n\n"
-        f"参考讲解：\n{problem.get('explanation', '')}\n\n"
+        f"参考讲解摘要：\n{reference[:1200]}\n\n"
         f"用户当前代码：\n```python\n{code}\n```"
     )
     messages = [{"role": "system", "content": system},
                 {"role": "user", "content": context}]
-    for item in history[-6:]:
+    ai_history = [item for item in history
+                  if item.get("source") == "ai"
+                  and item.get("q") != "[思路诊断]"
+                  and isinstance(item.get("q"), str)
+                  and isinstance(item.get("a"), str)]
+    for item in ai_history[-4:]:
         messages.append({"role": "user", "content": item["q"]})
         messages.append({"role": "assistant", "content": item["a"]})
     messages.append({"role": "user", "content": question})
-    return call_llm(cfg, messages)
+    return call_llm(cfg, messages, max_tokens=256)
 
 
 def summarize_judge(judge_result):
@@ -340,22 +379,36 @@ def summarize_judge(judge_result):
 
 
 def diagnose_llm(cfg, problem, code, judge_result):
-    """思路诊断：判定思路是否正确，定位 bug，给出修改方向（不给完整答案）。"""
+    """将用户实现与标准实现对照，评价正确性、策略和复杂度。"""
     system = (
-        "你是一位算法教练。用户提交了一段 LeetCode 题解代码但未通过判题。"
-        "请阅读代码并判断用户的【解题思路】是否正确，区分「思路错误」和「思路正确但实现有 bug」。"
-        "严格按以下三段格式用中文输出，每段 1~3 句话，简洁具体：\n"
-        "【思路判定】思路正确 / 思路基本正确但有偏差 / 思路方向错误，并给出一句依据；\n"
-        "【Bug 定位】指出出错的行或语句，说明为什么错；\n"
-        "【修改提示】只给修改方向和关键思路，不要给出完整正确代码。"
+        "你是一位严格但友好的算法教练。用户代码可能通过了全部用例，也可能未通过。"
+        "你会同时收到题目、用户实现、标准实现、参考思路和判题结果。"
+        "必须先理解标准实现采用的数据结构、状态定义、循环或递归不变量及复杂度，"
+        "再逐项比较用户实现与标准实现，而不是仅根据通过用例数量下结论。"
+        "判题通过只代表当前用例下结果正确，不代表算法复杂度、可扩展性或策略选择已经合格。"
+        "如果用户采用与标准实现不同、但正确且复杂度相当或更优的方案，应认可为达标；"
+        "如果用户方案正确但复杂度更差，应评价为『正确但需优化』。"
+        "不要在回答中完整复制标准代码，只说明关键差异。"
+        "严格按以下五段格式输出，每段 1~2 句话：\n"
+        "【综合评级】只能选择：正确且复杂度达标 / 正确但需优化 / 思路基本正确但实现有 bug / 思路方向错误；\n"
+        "【实现对比】比较用户实现与标准实现的数据结构、控制流程和关键不变量；\n"
+        "【复杂度分析】写出用户方案的时间、空间复杂度，并与参考方案比较；\n"
+        "【问题定位】指出具体 bug、边界风险或性能瓶颈；若无正确性 bug，也要明确说明性能问题；\n"
+        "【改进提示】给出下一步优化方向和关键数据结构，不要直接给完整答案。"
     )
+    reference = coaching_reference(problem)
+    standard_code = reference_implementation(problem)
+    hints = "\n".join(f"- {hint}" for hint in problem.get("hints", []))
     context = (
         f"题目：{problem['title']}\n\n{problem['description']}\n\n"
         f"用户代码：\n```python\n{code}\n```\n\n"
-        f"判题结果：\n{summarize_judge(judge_result)}"
+        f"标准实现：\n```python\n{standard_code}\n```\n\n"
+        f"判题结果：\n{summarize_judge(judge_result)}\n\n"
+        f"参考思路与复杂度：\n{reference}\n\n"
+        f"渐进提示：\n{hints}"
     )
     return call_llm(cfg, [{"role": "system", "content": system},
-                          {"role": "user", "content": context}])
+                          {"role": "user", "content": context}], max_tokens=520)
 
 
 def local_diagnose(judge_result, with_prefix=True):
@@ -377,7 +430,8 @@ def local_diagnose(judge_result, with_prefix=True):
         verdict = (f"{passed}/{total} 用例通过：思路大概率是正确的，"
                    "重点检查未通过用例的边界情况（空输入、单元素、重复元素、负数等）。")
     else:
-        verdict = "全部用例通过。"
+        verdict = ("全部用例通过，当前测试下正确性已验证；"
+                   "本地粗略诊断无法判断复杂度是否达到推荐方案，请继续对照题解复杂度。")
     failed = next((r for r in results if not r["ok"]), None)
     detail = ""
     if failed:
@@ -409,6 +463,7 @@ def llm_status():
         "model": cfg["model"] if cfg["api_key"] else "",
         "endpoint_host": host if cfg["api_key"] else "",
         "https": cfg["base_url"].startswith("https://"),
+        "timeout_seconds": cfg["timeout_seconds"],
     }
 
 # ---------------------------------------------------------------- HTTP 处理
@@ -675,8 +730,7 @@ class Handler(BaseHTTPRequestHandler):
                 answer = ask_llm(cfg, problem, code, question, history)
                 source = "ai"
             except Exception as exc:
-                answer = (f"（调用大模型失败：{exc}，已回退为本地讲解。）\n\n"
-                          + local_answer(problem, question))
+                answer = local_answer(problem, question, failure_reason=str(exc))
                 source = "local"
         else:
             answer = local_answer(problem, question)

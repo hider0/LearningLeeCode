@@ -36,18 +36,13 @@ class ProblemBankTest(unittest.TestCase):
     def test_all_reference_solutions_pass(self):
         failures = []
         for problem in app.PROBLEMS.values():
-            code_blocks = re.findall(
-                r"```python\n(.*?)```", problem.get("explanation", ""), re.DOTALL)
-            passed = False
-            last_result = None
-            for code in code_blocks:
-                last_result = app.run_judge(problem, code)
-                if (last_result.get("results")
-                        and all(case["ok"] for case in last_result["results"])):
-                    passed = True
-                    break
-            if not passed:
-                failures.append((problem["id"], last_result))
+            code = app.reference_implementation(problem)
+            if not code:
+                failures.append((problem["id"], "missing reference implementation"))
+                continue
+            result = app.run_judge(problem, code)
+            if not (result.get("results") and all(case["ok"] for case in result["results"])):
+                failures.append((problem["id"], result))
 
         self.assertEqual(failures, [])
 

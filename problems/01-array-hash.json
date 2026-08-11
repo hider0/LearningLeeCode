@@ -18,7 +18,7 @@
         {"args": [[3, 2, 4], 6], "expected": [1, 2]},
         {"args": [[3, 3], 6], "expected": [0, 1]},
         {"args": [[-1, -2, -3, -4, -5], -8], "expected": [2, 4]},
-        {"args": [[1, 5, 9, 13, 21], 14], "expected": [1, 2]}
+        {"args": [[1, 5, 9, 13, 21], 26], "expected": [1, 4]}
       ],
       "compare": "sorted",
       "hints": [

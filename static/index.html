@@ -360,8 +360,9 @@ function renderResult(r) {
   if (r.prints && r.prints.trim()) {
     html += `<div>你的 print 输出：</div><div class="prints">${escapeHtml(r.prints)}</div>`;
   }
-  if (!r.passed && (r.fatal || r.compile_error || r.results)) {
-    html += `<div class="btn-row"><button id="btn-diagnose" onclick="diagnose()">AI 诊断我的思路</button></div>
+  if (r.fatal || r.compile_error || r.results) {
+    const diagnoseLabel = r.passed ? "AI 评估复杂度与思路" : "AI 诊断我的思路";
+    html += `<div class="btn-row"><button id="btn-diagnose" onclick="diagnose()">${diagnoseLabel}</button></div>
              <div id="diagnosis"></div>`;
   }
   box.innerHTML = html;
@@ -371,20 +372,21 @@ function renderResult(r) {
 
 async function diagnose() {
   const btn = document.getElementById("btn-diagnose");
+  const originalText = btn.textContent;
   btn.disabled = true; btn.textContent = "诊断中…";
   try {
     const r = await api("/api/diagnose", {
       id: state.problem.id,
       code: document.getElementById("code").value,
     });
-    const srcTag = r.source === "ai" ? "AI 诊断" : "本地粗略诊断";
+    const srcTag = r.source === "ai" ? "AI 思路评估" : "本地粗略诊断";
     document.getElementById("diagnosis").innerHTML =
       `<div class="diagnosis-box">${md(r.diagnosis || r.error || "诊断失败")}` +
       `<div class="chat-meta">${srcTag} · 已记入本题笔记</div></div>`;
   } catch (error) {
     document.getElementById("diagnosis").innerHTML = noticeHtml(error);
   } finally {
-    btn.disabled = false; btn.textContent = "AI 诊断我的思路";
+    btn.disabled = false; btn.textContent = originalText;
   }
 }
 
@@ -397,6 +399,7 @@ async function loadLlmStatus() {
     if (s.configured) {
       el.className = "llm-badge on" + (s.https ? "" : " warn");
       el.textContent = `AI 已配置 ${s.key_hint} @ ${s.endpoint_host}` +
+                       ` · ${s.timeout_seconds}s` +
                        (s.https ? "" : "（非 HTTPS，谨慎使用）");
       el.title = "Key 仅保存在本地 config.json / 环境变量中，请求只发往你配置的接口";
     } else {
