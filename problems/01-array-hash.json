@@ -82,6 +82,32 @@
         "Python 中可以用 dict.setdefault(key, []).append(s) 或 collections.defaultdict(list)。"
       ],
       "explanation": "**核心思路：排序后的字符串作为分组的 key**\n\n互为字母异位词的两个字符串，字符多重集完全相同，因此**排序后必然相等**。例如 `\"eat\"` 和 `\"tea\"` 排序后都是 `\"aet\"`。\n\n于是可以用一个哈希表：key 为排序后的字符串，value 为该组所有原字符串的列表。遍历一遍数组，把每个字符串追加到对应分组即可。\n\n**参考代码**\n```python\nfrom collections import defaultdict\n\nclass Solution:\n    def groupAnagrams(self, strs):\n        groups = defaultdict(list)\n        for s in strs:\n            key = \"\".join(sorted(s))\n            groups[key].append(s)\n        return list(groups.values())\n```\n\n**复杂度**：设字符串个数为 n、最大长度为 k。排序每个字符串要 O(k log k)，总时间 O(n·k log k)；空间 O(n·k)。\n\n**进阶（了解即可）**：也可以用「26 个字母的计数元组」作为 key，把单串处理降到 O(k)，总时间 O(n·k)。\n\n注意：本题的判题器对分组顺序和组内顺序不敏感，只要分组结果正确即可通过。"
+    },
+    {
+      "id": "valid-anagram",
+      "title": "242. 有效的字母异位词",
+      "difficulty": "简单",
+      "description": "给定两个字符串 `s` 和 `t`，判断 `t` 是否是 `s` 的字母异位词。\n\n字母异位词要求两个字符串包含的字符种类和每种字符的出现次数完全相同，只是排列顺序可以不同。",
+      "examples": [
+        {"input": "s = \"anagram\", t = \"nagaram\"", "output": "true"},
+        {"input": "s = \"rat\", t = \"car\"", "output": "false"}
+      ],
+      "entry": "isAnagram",
+      "starter": "class Solution:\n    def isAnagram(self, s: str, t: str) -> bool:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": ["anagram", "nagaram"], "expected": true},
+        {"args": ["rat", "car"], "expected": false},
+        {"args": ["", ""], "expected": true},
+        {"args": ["aacc", "ccac"], "expected": false},
+        {"args": ["listen", "silent"], "expected": true}
+      ],
+      "compare": "exact",
+      "hints": [
+        "先比较两个字符串长度；长度不同一定不是字母异位词。",
+        "可以排序后比较，但排序需要 O(n log n)。",
+        "更直接的方法是用哈希表统计 s 中每个字符的次数，再用 t 抵消计数。"
+      ],
+      "explanation": "**核心思路：字符计数**\n\n两个字符串互为字母异位词，当且仅当每个字符在两边出现的次数都相同。可以先遍历 `s` 建立计数字典，再遍历 `t` 逐个减一；如果某个字符不存在或计数已经为 0，就可以立即返回 false。\n\n初学时也可以使用排序：`sorted(s) == sorted(t)`，代码很短，但排序会把时间复杂度提高到 O(n log n)。计数法只需一次线性扫描。\n\n**参考代码**\n```python\nclass Solution:\n    def isAnagram(self, s: str, t: str) -> bool:\n        if len(s) != len(t):\n            return False\n        counts = {}\n        for char in s:\n            counts[char] = counts.get(char, 0) + 1\n        for char in t:\n            if counts.get(char, 0) == 0:\n                return False\n            counts[char] -= 1\n        return True\n```\n\n**复杂度**：时间 O(n)，空间 O(k)，k 为不同字符的数量。"
     }
   ]
 }

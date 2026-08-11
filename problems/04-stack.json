@@ -89,6 +89,32 @@
         "注意只有恰好两个点才是返回上一级，`'...'` 是普通目录名，必须照常入栈。"
       ],
       "explanation": "**核心思路：栈维护目录层级**\n\n路径可以按 `'/'` 切分成一段段的目录名。遍历这些段：\n\n- **空串**（由连续斜杠或末尾斜杠产生）和 **`'.'`**：不产生任何效果，跳过；\n- **`'..'`**：需要回退到上一级，即删除最近进入的目录；\n- **其他目录名**（包括 `'...'` 这类多个点的合法名字）：进入下一级目录。\n\n「回退时删除最近进入的目录」正是后进先出，所以用一个栈来保存当前的目录序列即可。\n\n**算法步骤**\n1. 用 `path.split('/')` 切分路径，得到一个字符串列表。\n2. 遍历每一段 `name`：\n   - 若 `name` 为空串或 `'.'`，跳过；\n   - 若 `name` 是 `'..'`，栈非空则弹出栈顶（栈空说明已在根目录，忽略）；\n   - 否则把 `name` 压入栈中。\n3. 返回 `'/' + '/'.join(stack)`；栈为空时结果就是 `\"/\"`，天然满足要求。\n\n**易错点**\n- 只有**恰好两个点**的 `'..'` 才是返回上一级，`'...'`、`'....'` 都是普通目录名，不能特殊处理。\n- 根目录之上没有父目录，`/../` 应返回 `\"/\"` 而不是报错。\n\n**复杂度**：时间 O(n)，路径只被切分和遍历一次；空间 O(n)，栈最多存放全部目录名。\n\n**参考代码**\n```python\nclass Solution:\n    def simplifyPath(self, path: str) -> str:\n        stack = []\n        for name in path.split('/'):\n            if name == '' or name == '.':\n                continue\n            if name == '..':\n                if stack:\n                    stack.pop()\n            else:\n                stack.append(name)\n        return '/' + '/'.join(stack)\n```"
+    },
+    {
+      "id": "daily-temperatures",
+      "title": "739. 每日温度",
+      "difficulty": "中等",
+      "description": "给定一个整数数组 `temperatures`，其中 `temperatures[i]` 表示第 i 天的温度。返回数组 `answer`，其中 `answer[i]` 是从第 i 天起，需要等待多少天才会出现更高温度；如果之后不会升温，则该位置为 0。",
+      "examples": [
+        {"input": "temperatures = [73,74,75,71,69,72,76,73]", "output": "[1,1,4,2,1,1,0,0]"},
+        {"input": "temperatures = [30,40,50,60]", "output": "[1,1,1,0]"}
+      ],
+      "entry": "dailyTemperatures",
+      "starter": "class Solution:\n    def dailyTemperatures(self, temperatures: list[int]) -> list[int]:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[73, 74, 75, 71, 69, 72, 76, 73]], "expected": [1, 1, 4, 2, 1, 1, 0, 0]},
+        {"args": [[30, 40, 50, 60]], "expected": [1, 1, 1, 0]},
+        {"args": [[30, 60, 90]], "expected": [1, 1, 0]},
+        {"args": [[90, 80, 70]], "expected": [0, 0, 0]},
+        {"args": [[70]], "expected": [0]}
+      ],
+      "compare": "exact",
+      "hints": [
+        "暴力做法会为每一天向后扫描，最坏 O(n²)。",
+        "维护一个下标栈，并保证栈中对应温度从栈底到栈顶单调不升。",
+        "遇到更高温度时，不断弹出栈顶；当前下标减去弹出的下标，就是等待天数。"
+      ],
+      "explanation": "**核心思路：单调栈**\n\n栈中保存那些“还没有等到更高温度”的天数下标，并保持对应温度从栈底到栈顶单调不升。遍历到今天 `i` 时，如果今天比栈顶那天更热，说明栈顶终于找到了答案：等待天数是 `i - previous`。继续弹栈，直到栈为空或栈顶温度不低于今天。最后把今天的下标压栈，等待未来更高温度。\n\n每个下标最多入栈一次、出栈一次，因此虽然代码里有 while 循环，总时间仍是 O(n)。\n\n**参考代码**\n```python\nclass Solution:\n    def dailyTemperatures(self, temperatures):\n        answer = [0] * len(temperatures)\n        stack = []\n        for index, temperature in enumerate(temperatures):\n            while stack and temperatures[stack[-1]] < temperature:\n                previous = stack.pop()\n                answer[previous] = index - previous\n            stack.append(index)\n        return answer\n```\n\n**复杂度**：时间 O(n)，空间 O(n)。"
     }
   ]
 }

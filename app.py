@@ -13,8 +13,11 @@
 """
 import json
 import os
+import signal
 import subprocess
 import sys
+import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -31,6 +34,12 @@ CONFIG_FILE = ROOT / "config.json"
 RUNNER = ROOT / "runner.py"
 RUN_TIMEOUT = 15   # 单次判题最长秒数
 LLM_TIMEOUT = 60   # 大模型请求最长秒数
+MAX_CODE_CHARS = 100_000
+MAX_QUESTION_CHARS = 4_000
+MAX_REQUEST_BYTES = 256 * 1024
+MAX_JUDGE_OUTPUT_BYTES = 1 * 1024 * 1024
+MAX_NOTES_PER_PROBLEM = 200
+PROGRESS_LOCK = threading.RLock()
 
 
 # ---------------------------------------------------------------- 题库
@@ -54,19 +63,89 @@ CHAPTERS, PROBLEMS = load_problems()
 # ---------------------------------------------------------------- 进度存储
 
 
-def load_progress():
-    if PROGRESS_FILE.exists():
-        try:
-            return json.loads(PROGRESS_FILE.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            pass
+def empty_progress():
     return {"solved": {}, "wrong": {}, "notes": {}}
 
 
+def normalize_progress(progress):
+    if not isinstance(progress, dict):
+        return empty_progress()
+    normalized = dict(progress)
+    for key in ("solved", "wrong", "notes"):
+        if not isinstance(normalized.get(key), dict):
+            normalized[key] = {}
+    normalized["wrong"] = {
+        key: value for key, value in normalized["wrong"].items()
+        if isinstance(key, str) and isinstance(value, dict)
+    }
+    normalized["notes"] = {
+        key: [item for item in value if isinstance(item, dict)]
+        for key, value in normalized["notes"].items()
+        if isinstance(key, str) and isinstance(value, list)
+    }
+    return normalized
+
+
+def _load_progress_unlocked(quarantine_corrupt=False):
+    if not PROGRESS_FILE.exists():
+        return empty_progress()
+    try:
+        return normalize_progress(json.loads(PROGRESS_FILE.read_text(encoding="utf-8")))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        if quarantine_corrupt:
+            backup = PROGRESS_FILE.with_name(
+                f"{PROGRESS_FILE.stem}.corrupt-{time.time_ns()}{PROGRESS_FILE.suffix}")
+            try:
+                os.replace(PROGRESS_FILE, backup)
+            except OSError:
+                pass
+        return empty_progress()
+
+
+def load_progress():
+    with PROGRESS_LOCK:
+        return _load_progress_unlocked()
+
+
+def _save_progress_unlocked(progress):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(
+        prefix=PROGRESS_FILE.name + ".", suffix=".tmp", dir=DATA_DIR)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(normalize_progress(progress), handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_name, PROGRESS_FILE)
+        if os.name == "posix":
+            try:
+                directory_fd = os.open(DATA_DIR, os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+            except OSError:
+                pass
+    finally:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+
+
 def save_progress(progress):
-    DATA_DIR.mkdir(exist_ok=True)
-    PROGRESS_FILE.write_text(
-        json.dumps(progress, ensure_ascii=False, indent=2), encoding="utf-8")
+    with PROGRESS_LOCK:
+        _save_progress_unlocked(progress)
+
+
+def update_progress(mutator):
+    """在同一把锁内完成读取、修改和原子保存。"""
+    with PROGRESS_LOCK:
+        progress = _load_progress_unlocked(quarantine_corrupt=True)
+        result = mutator(progress)
+        _save_progress_unlocked(progress)
+        return result
 
 # ---------------------------------------------------------------- 配置
 
@@ -89,7 +168,47 @@ def load_config():
 # ---------------------------------------------------------------- 判题
 
 
+def _judge_environment():
+    """只向判题进程传递运行所需的少量环境变量。"""
+    allowed = ("SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR", "LANG", "LC_ALL")
+    return {key: os.environ[key] for key in allowed if key in os.environ}
+
+
+def _terminate_judge(proc):
+    """超时时尽量清理判题进程及其派生进程。"""
+    if proc.poll() is not None:
+        return
+    try:
+        if os.name == "posix":
+            os.killpg(proc.pid, signal.SIGKILL)
+        elif os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=5,
+                check=False,
+            )
+            if proc.poll() is None:
+                proc.kill()
+        else:
+            proc.kill()
+    except (OSError, ProcessLookupError, subprocess.TimeoutExpired):
+        proc.kill()
+
+
+def _read_capped(file_obj, limit=MAX_JUDGE_OUTPUT_BYTES):
+    file_obj.flush()
+    file_obj.seek(0, os.SEEK_END)
+    size = file_obj.tell()
+    file_obj.seek(max(0, size - limit))
+    data = file_obj.read(limit)
+    return data.decode("utf-8", "replace"), size > limit
+
+
 def run_judge(problem, code):
+    if len(code) > MAX_CODE_CHARS:
+        return {"fatal": f"代码过长，最多允许 {MAX_CODE_CHARS} 个字符"}
     payload = {
         "code": code,
         "entry": problem["entry"],
@@ -97,22 +216,44 @@ def run_judge(problem, code):
         "codec": problem.get("codec"),
         "compare": problem.get("compare", "exact"),
     }
-    try:
-        proc = subprocess.run(
-            [sys.executable, str(RUNNER)],
-            input=json.dumps(payload),
-            capture_output=True, text=True,
-            timeout=RUN_TIMEOUT, cwd=str(ROOT),
-        )
-    except subprocess.TimeoutExpired:
-        return {"fatal": f"运行超时（超过 {RUN_TIMEOUT} 秒），请检查是否存在死循环"}
-    if not proc.stdout.strip():
-        detail = proc.stderr.strip()[-500:] or "未知错误"
+    popen_kwargs = {
+        "stdin": subprocess.PIPE,
+        "text": True,
+        "encoding": "utf-8",
+        "env": _judge_environment(),
+    }
+    if os.name == "posix":
+        popen_kwargs["start_new_session"] = True
+    elif os.name == "nt":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+
+    with tempfile.TemporaryDirectory(prefix="leetcode-judge-") as workdir:
+        with tempfile.TemporaryFile() as stdout_file, tempfile.TemporaryFile() as stderr_file:
+            proc = subprocess.Popen(
+                [sys.executable, "-I", "-S", "-B", str(RUNNER)],
+                cwd=workdir,
+                stdout=stdout_file,
+                stderr=stderr_file,
+                **popen_kwargs,
+            )
+            try:
+                proc.communicate(json.dumps(payload, ensure_ascii=False), timeout=RUN_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                _terminate_judge(proc)
+                proc.wait()
+                return {"fatal": f"运行超时（超过 {RUN_TIMEOUT} 秒），请检查是否存在死循环"}
+            stdout, stdout_truncated = _read_capped(stdout_file)
+            stderr, _ = _read_capped(stderr_file)
+
+    if stdout_truncated:
+        return {"fatal": "判题输出超过安全上限，请减少直接写入标准输出的内容"}
+    if not stdout.strip():
+        detail = stderr.strip()[-500:] or "未知错误"
         return {"fatal": "判题进程异常退出：" + detail}
     try:
-        return json.loads(proc.stdout)
+        return json.loads(stdout)
     except json.JSONDecodeError:
-        return {"fatal": "判题输出解析失败", "raw": proc.stdout[-500:]}
+        return {"fatal": "判题输出解析失败", "raw": stdout[-500:]}
 
 # ---------------------------------------------------------------- 追问
 
@@ -150,9 +291,14 @@ def call_llm(cfg, messages):
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:300]
+        if cfg["api_key"]:
+            detail = detail.replace(cfg["api_key"], "[REDACTED]")
         raise RuntimeError(f"大模型接口返回 HTTP {exc.code}: {detail}") from None
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"网络错误: {exc.reason}") from None
+        reason = str(exc.reason)
+        if cfg["api_key"]:
+            reason = reason.replace(cfg["api_key"], "[REDACTED]")
+        raise RuntimeError(f"网络错误: {reason}") from None
     return data["choices"][0]["message"]["content"].strip()
 
 
@@ -273,10 +419,23 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- 工具 ----
 
+    def _send_common_headers(self):
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline'; connect-src 'self'; "
+            "img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'",
+        )
+
     def _send_json(self, obj, status=200):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
+        self._send_common_headers()
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -284,19 +443,28 @@ class Handler(BaseHTTPRequestHandler):
     def _send_html(self, path):
         body = path.read_bytes()
         self.send_response(200)
+        self._send_common_headers()
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def _read_body(self):
-        length = int(self.headers.get("Content-Length") or 0)
-        if length <= 0:
-            return {}
         try:
-            return json.loads(self.rfile.read(length).decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            return {}
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError as exc:
+            raise ValueError("Content-Length 无效") from exc
+        if length <= 0:
+            raise ValueError("请求体不能为空")
+        if length > MAX_REQUEST_BYTES:
+            raise OverflowError(f"请求体过大，最多允许 {MAX_REQUEST_BYTES} 字节")
+        try:
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("请求体必须是合法 JSON") from exc
+        if not isinstance(body, dict):
+            raise ValueError("请求体必须是 JSON 对象")
+        return body
 
     # ---- GET ----
 
@@ -344,11 +512,13 @@ class Handler(BaseHTTPRequestHandler):
         if not p:
             self._send_json({"error": "题目不存在"}, status=404)
             return
+        saved_code = load_progress()["wrong"].get(pid, {}).get("last_code", "")
         self._send_json({
             "id": p["id"], "title": p["title"], "chapter": p["chapter"],
             "difficulty": p["difficulty"], "description": p["description"],
             "examples": p.get("examples", []), "starter": p["starter"],
             "hints": p.get("hints", []), "explanation": p.get("explanation", ""),
+            "saved_code": saved_code,
         })
 
     def _handle_get_wrong(self):
@@ -370,7 +540,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         route = urlparse(self.path).path
-        body = self._read_body()
+        try:
+            body = self._read_body()
+        except OverflowError as exc:
+            self._send_json({"error": str(exc)}, status=413)
+            return
+        except ValueError as exc:
+            self._send_json({"error": str(exc)}, status=400)
+            return
         if route == "/api/submit":
             self._handle_submit(body)
         elif route == "/api/ask":
@@ -382,12 +559,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def _handle_diagnose(self, body):
         pid, code = body.get("id", ""), body.get("code", "")
+        if not isinstance(pid, str) or not isinstance(code, str):
+            self._send_json({"error": "id 和 code 必须是字符串"}, status=400)
+            return
         problem = PROBLEMS.get(pid)
         if not problem:
             self._send_json({"error": "题目不存在"}, status=404)
             return
         if not code.strip():
             self._send_json({"error": "代码不能为空"}, status=400)
+            return
+        if len(code) > MAX_CODE_CHARS:
+            self._send_json({"error": f"代码过长，最多允许 {MAX_CODE_CHARS} 个字符"}, status=413)
             return
 
         judge_result = run_judge(problem, code)
@@ -404,21 +587,31 @@ class Handler(BaseHTTPRequestHandler):
             diagnosis = local_diagnose(judge_result)
             source = "local"
 
-        progress = load_progress()
-        history = progress["notes"].setdefault(pid, [])
-        history.append({"q": "[思路诊断]", "a": diagnosis, "source": source,
-                        "time": time.strftime("%Y-%m-%d %H:%M:%S")})
-        save_progress(progress)
+        note = {"q": "[思路诊断]", "a": diagnosis, "source": source,
+                "time": time.strftime("%Y-%m-%d %H:%M:%S")}
+
+        def record_diagnosis(progress):
+            history = progress["notes"].setdefault(pid, [])
+            history.append(note)
+            del history[:-MAX_NOTES_PER_PROBLEM]
+
+        update_progress(record_diagnosis)
         self._send_json({"diagnosis": diagnosis, "source": source})
 
     def _handle_submit(self, body):
         pid, code = body.get("id", ""), body.get("code", "")
+        if not isinstance(pid, str) or not isinstance(code, str):
+            self._send_json({"error": "id 和 code 必须是字符串"}, status=400)
+            return
         problem = PROBLEMS.get(pid)
         if not problem:
             self._send_json({"error": "题目不存在"}, status=404)
             return
         if not code.strip():
             self._send_json({"error": "代码不能为空"}, status=400)
+            return
+        if len(code) > MAX_CODE_CHARS:
+            self._send_json({"error": f"代码过长，最多允许 {MAX_CODE_CHARS} 个字符"}, status=413)
             return
 
         result = run_judge(problem, code)
@@ -432,27 +625,35 @@ class Handler(BaseHTTPRequestHandler):
                 failed.get("error")
                 or f"用例 {failed['args']} 期望 {failed['expected']}，实际 {failed.get('got')}")
 
-        progress = load_progress()
         now = time.strftime("%Y-%m-%d %H:%M:%S")
-        if passed:
-            progress["solved"][pid] = now
-            progress["wrong"].pop(pid, None)
-        else:
-            rec = progress["wrong"].get(pid, {"attempts": 0})
-            rec["attempts"] = rec.get("attempts", 0) + 1
-            rec["last_code"] = code[-4000:]
-            rec["last_error"] = summary
-            rec["time"] = now
-            progress["wrong"][pid] = rec
-        save_progress(progress)
+
+        def record_submission(progress):
+            if passed:
+                progress["solved"][pid] = now
+                progress["wrong"].pop(pid, None)
+            else:
+                rec = progress["wrong"].get(pid, {"attempts": 0})
+                if not isinstance(rec, dict):
+                    rec = {"attempts": 0}
+                rec["attempts"] = rec.get("attempts", 0) + 1
+                rec["last_code"] = code[-MAX_CODE_CHARS:]
+                rec["last_error"] = summary
+                rec["time"] = now
+                progress["wrong"][pid] = rec
+
+        update_progress(record_submission)
 
         result["passed"] = passed
         self._send_json(result)
 
     def _handle_ask(self, body):
         pid = body.get("id", "")
-        question = (body.get("question") or "").strip()
+        question = body.get("question", "")
         code = body.get("code", "")
+        if not all(isinstance(value, str) for value in (pid, question, code)):
+            self._send_json({"error": "id、question 和 code 必须是字符串"}, status=400)
+            return
+        question = question.strip()
         problem = PROBLEMS.get(pid)
         if not problem:
             self._send_json({"error": "题目不存在"}, status=404)
@@ -460,9 +661,14 @@ class Handler(BaseHTTPRequestHandler):
         if not question:
             self._send_json({"error": "问题不能为空"}, status=400)
             return
+        if len(question) > MAX_QUESTION_CHARS:
+            self._send_json({"error": f"问题过长，最多允许 {MAX_QUESTION_CHARS} 个字符"}, status=413)
+            return
+        if len(code) > MAX_CODE_CHARS:
+            self._send_json({"error": f"代码过长，最多允许 {MAX_CODE_CHARS} 个字符"}, status=413)
+            return
 
-        progress = load_progress()
-        history = progress["notes"].setdefault(pid, [])
+        history = list(load_progress()["notes"].get(pid, []))
         cfg = load_config()
         if cfg["api_key"]:
             try:
@@ -476,9 +682,15 @@ class Handler(BaseHTTPRequestHandler):
             answer = local_answer(problem, question)
             source = "local"
 
-        history.append({"q": question, "a": answer, "source": source,
-                        "time": time.strftime("%Y-%m-%d %H:%M:%S")})
-        save_progress(progress)
+        note = {"q": question, "a": answer, "source": source,
+                "time": time.strftime("%Y-%m-%d %H:%M:%S")}
+
+        def record_answer(progress):
+            notes = progress["notes"].setdefault(pid, [])
+            notes.append(note)
+            del notes[:-MAX_NOTES_PER_PROBLEM]
+
+        update_progress(record_answer)
         self._send_json({"answer": answer, "source": source})
 
 

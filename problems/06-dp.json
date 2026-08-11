@@ -80,6 +80,32 @@
         "注意贪心（优先用大面额）不一定正确，例如 coins = [1, 3, 4], amount = 6，贪心得 4+1+1 共 3 枚，而最优是 3+3 共 2 枚。"
       ],
       "explanation": "**核心思路：完全背包式一维动态规划**\n\n设 dp[a] 表示凑出金额 a 所需的**最少硬币数**。\n\n最后一枚硬币的面额必为某个 c ∈ coins，那么前 a-c 的金额需要 dp[a-c] 枚，于是：\n\n**dp[a] = min(dp[a - c] + 1)**，对所有满足 c <= a 的面额 c 取最小。\n\n边界：dp[0] = 0（金额为 0 不需要任何硬币）。\n\n**算法步骤**\n1. 初始化 dp 数组长度为 amount + 1，除 dp[0] = 0 外其余填 `amount + 1` 作为「不可达」标记（任何真实答案最多 amount 枚面额 1 的硬币，不可能超过 amount，所以 amount + 1 足够大）。\n2. 从 1 到 amount 依次计算 dp[a]：枚举每个面额 c，若 c <= a，则 dp[a] = min(dp[a], dp[a-c] + 1)。\n3. 若 dp[amount] 仍为不可达标记，返回 -1，否则返回 dp[amount]。\n\n**为什么不能贪心**：优先选大面额不保证最优。例如 coins = [186, 419, 83, 408]、amount = 6249 这类数据正是 LeetCode 用来卡贪心解的用例，DP 才能保证正确。\n\n**复杂度**：时间 O(amount × n)，n 为硬币面额种数；空间 O(amount)。\n\n**参考代码**\n```python\nclass Solution:\n    def coinChange(self, coins, amount):\n        INF = amount + 1\n        dp = [0] + [INF] * amount\n        for a in range(1, amount + 1):\n            for c in coins:\n                if c <= a and dp[a - c] + 1 < dp[a]:\n                    dp[a] = dp[a - c] + 1\n        return dp[amount] if dp[amount] <= amount else -1\n```"
+    },
+    {
+      "id": "unique-paths",
+      "title": "62. 不同路径",
+      "difficulty": "中等",
+      "description": "一个机器人位于 `m × n` 网格的左上角，每次只能向右或向下移动一步。机器人要到达右下角，共有多少条不同路径？",
+      "examples": [
+        {"input": "m = 3, n = 7", "output": "28"},
+        {"input": "m = 3, n = 2", "output": "3"}
+      ],
+      "entry": "uniquePaths",
+      "starter": "class Solution:\n    def uniquePaths(self, m: int, n: int) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [3, 7], "expected": 28},
+        {"args": [3, 2], "expected": 3},
+        {"args": [1, 1], "expected": 1},
+        {"args": [1, 8], "expected": 1},
+        {"args": [10, 10], "expected": 48620}
+      ],
+      "compare": "exact",
+      "hints": [
+        "到达某个格子的最后一步，只可能来自它的上方或左方。",
+        "因此路径数满足 dp[row][col] = dp[row-1][col] + dp[row][col-1]。",
+        "第一行和第一列都只有一种走法；还可以把二维 dp 压缩成一维。"
+      ],
+      "explanation": "**核心思路：网格动态规划**\n\n定义 `dp[row][col]` 为走到当前格子的路径数量。最后一步只可能从上方下来，或从左边过来，所以两种来源相加：`dp[row][col] = dp[row-1][col] + dp[row][col-1]`。\n\n第一行只能一直向右，第一列只能一直向下，所以这些位置的路径数都是 1。为了节省空间，可以只保留一行：`dp[col]` 在更新前代表上方格子的路径数，`dp[col-1]` 代表左方格子的路径数，直接执行 `dp[col] += dp[col-1]`。\n\n**参考代码**\n```python\nclass Solution:\n    def uniquePaths(self, m: int, n: int) -> int:\n        dp = [1] * n\n        for row in range(1, m):\n            for col in range(1, n):\n                dp[col] += dp[col - 1]\n        return dp[-1]\n```\n\n**复杂度**：时间 O(mn)，空间 O(n)。如果 n 比 m 大，也可以交换二者，使空间为 O(min(m,n))。"
     }
   ]
 }

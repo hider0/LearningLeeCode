@@ -14,12 +14,78 @@
     或 {"compile_error": "..."}
 """
 import contextlib
-import io
 import json
+import os
 import sys
 from itertools import zip_longest
 
 REAL_STDOUT = sys.stdout
+JSON_DUMPS = json.dumps
+
+MAX_CAPTURE_CHARS = 16_000
+CPU_LIMIT_SECONDS = 6
+MEMORY_LIMIT_BYTES = 512 * 1024 * 1024
+FILE_LIMIT_BYTES = 1 * 1024 * 1024
+OPEN_FILE_LIMIT = 64
+PROCESS_LIMIT = 32
+
+
+class CappedTextBuffer:
+    """只保留末尾固定数量字符，避免 print 输出无限占用内存。"""
+
+    def __init__(self, limit=MAX_CAPTURE_CHARS):
+        self.limit = limit
+        self.value = ""
+        self.truncated = False
+
+    def write(self, text):
+        text = str(text)
+        combined = self.value + text[-self.limit:]
+        if len(combined) > self.limit or len(text) > self.limit:
+            self.truncated = True
+        self.value = combined[-self.limit:]
+        return len(text)
+
+    def flush(self):
+        return None
+
+    def getvalue(self):
+        if self.truncated:
+            return "[前方输出已截断]\n" + self.value
+        return self.value
+
+
+def apply_resource_limits():
+    """在支持 resource 的系统上收紧判题进程资源上限。"""
+    if os.name != "posix":
+        return
+    try:
+        import resource
+    except ImportError:
+        return
+
+    limits = [
+        (resource.RLIMIT_CPU, CPU_LIMIT_SECONDS),
+        (resource.RLIMIT_FSIZE, FILE_LIMIT_BYTES),
+        (resource.RLIMIT_NOFILE, OPEN_FILE_LIMIT),
+    ]
+    if hasattr(resource, "RLIMIT_AS"):
+        limits.append((resource.RLIMIT_AS, MEMORY_LIMIT_BYTES))
+    if hasattr(resource, "RLIMIT_NPROC"):
+        limits.append((resource.RLIMIT_NPROC, PROCESS_LIMIT))
+    if hasattr(resource, "RLIMIT_CORE"):
+        limits.append((resource.RLIMIT_CORE, 0))
+
+    for kind, value in limits:
+        try:
+            resource.setrlimit(kind, (value, value))
+        except (OSError, ValueError):
+            continue
+
+
+def emit(payload):
+    REAL_STDOUT.write(JSON_DUMPS(payload, ensure_ascii=False))
+    REAL_STDOUT.flush()
 
 
 class ListNode:
@@ -132,56 +198,57 @@ def matches(got, expected, mode):
 
 def main():
     payload = json.load(sys.stdin)
+    apply_resource_limits()
     codec = payload.get("codec") or {}
     arg_kinds = codec.get("args") or []
     result_kind = codec.get("result")
     compare = payload.get("compare") or "exact"
 
     namespace = {"ListNode": ListNode, "TreeNode": TreeNode}
-    buf = io.StringIO()
+    buf = CappedTextBuffer()
     try:
         with contextlib.redirect_stdout(buf):
             exec(payload["code"], namespace)
-    except Exception as exc:
-        json.dump({
+    except BaseException as exc:
+        emit({
             "compile_error": f"{type(exc).__name__}: {exc}",
-            "prints": buf.getvalue()[-4000:],
-        }, REAL_STDOUT)
+            "prints": buf.getvalue(),
+        })
         return
 
     solution_cls = namespace.get("Solution")
     if solution_cls is None:
-        json.dump({"compile_error": "未找到 Solution 类，请按模板作答",
-                   "prints": buf.getvalue()[-4000:]}, REAL_STDOUT)
+        emit({"compile_error": "未找到 Solution 类，请按模板作答",
+              "prints": buf.getvalue()})
         return
-    try:
-        fn = getattr(solution_cls(), payload["entry"])
-    except AttributeError:
-        json.dump({"compile_error": f"Solution 类中未找到方法 {payload['entry']}",
-                   "prints": buf.getvalue()[-4000:]}, REAL_STDOUT)
+    if not hasattr(solution_cls, payload["entry"]):
+        emit({"compile_error": f"Solution 类中未找到方法 {payload['entry']}",
+              "prints": buf.getvalue()})
         return
 
     results = []
     for case in payload["tests"]:
         args = [decode(a, k) for a, k in zip_longest(case["args"], arg_kinds)]
         try:
+            fn = getattr(solution_cls(), payload["entry"])
             with contextlib.redirect_stdout(buf):
                 out = fn(*args)
             got = encode(out, result_kind)
+            JSON_DUMPS(got, ensure_ascii=False)
             results.append({
                 "ok": bool(matches(got, case["expected"], compare)),
                 "args": case["args"],
                 "expected": case["expected"],
                 "got": got,
             })
-        except Exception as exc:
+        except BaseException as exc:
             results.append({
                 "ok": False,
                 "args": case["args"],
                 "expected": case["expected"],
                 "error": f"{type(exc).__name__}: {exc}",
             })
-    json.dump({"results": results, "prints": buf.getvalue()[-4000:]}, REAL_STDOUT)
+    emit({"results": results, "prints": buf.getvalue()})
 
 
 if __name__ == "__main__":

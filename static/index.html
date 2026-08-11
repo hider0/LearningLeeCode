@@ -94,6 +94,9 @@
   .diagnosis-box { border: 1px solid #d6e9f8; background: #f4f9fd; border-radius: 6px;
                    padding: 12px 16px; margin-top: 10px; white-space: pre-wrap;
                    line-height: 1.7; font-size: 14px; }
+  .notice { border-radius: 6px; padding: 9px 12px; margin-top: 10px; font-size: 14px; }
+  .notice.error { background: #fdecea; color: #c0392b; border: 1px solid #f5c6cb; }
+  .draft-status { color: #7f8c8d; font-size: 12px; margin-left: auto; align-self: center; }
 </style>
 </head>
 <body>
@@ -113,6 +116,8 @@
 <script>
 const state = { problem: null, submitted: false };
 const STATUS_ICON = { solved: "✓", wrong: "✗", todo: "○" };
+const DRAFT_PREFIX = "leetcode-trainer:draft:";
+let draftTimer = null;
 
 async function api(path, body) {
   const opts = body === undefined ? {} : {
@@ -120,12 +125,69 @@ async function api(path, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   };
-  const resp = await fetch(path, opts);
-  return resp.json();
+  let resp;
+  try {
+    resp = await fetch(path, opts);
+  } catch (error) {
+    throw new Error("无法连接本地服务，请确认 app.py 仍在运行");
+  }
+  const text = await resp.text();
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (error) {
+      throw new Error(`服务返回了无法解析的数据（HTTP ${resp.status}）`);
+    }
+  }
+  if (!resp.ok) throw new Error(data.error || `请求失败（HTTP ${resp.status}）`);
+  return data;
 }
 
 function escapeHtml(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function errorText(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function noticeHtml(error) {
+  return `<div class="notice error">${escapeHtml(errorText(error))}</div>`;
+}
+
+function draftKey(problemId) {
+  return DRAFT_PREFIX + problemId;
+}
+
+function getLocalDraft(problemId) {
+  try { return localStorage.getItem(draftKey(problemId)); }
+  catch (error) { return null; }
+}
+
+function updateDraftStatus(message) {
+  const status = document.getElementById("draft-status");
+  if (status) status.textContent = message;
+}
+
+function saveDraftNow() {
+  clearTimeout(draftTimer);
+  draftTimer = null;
+  const editor = document.getElementById("code");
+  if (!state.problem || !editor) return;
+  try {
+    localStorage.setItem(draftKey(state.problem.id), editor.value);
+    updateDraftStatus("草稿已自动保存");
+  } catch (error) {
+    updateDraftStatus("浏览器未允许保存草稿");
+  }
+}
+
+function scheduleDraftSave() {
+  updateDraftStatus("正在保存草稿…");
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraftNow, 350);
 }
 
 /* 轻量 Markdown：代码块、行内代码、加粗 */
@@ -141,8 +203,14 @@ function md(text) {
 /* ---------------- 侧边栏 ---------------- */
 
 async function loadChapters() {
-  const chapters = await api("/api/chapters");
   const bar = document.getElementById("sidebar");
+  let chapters;
+  try {
+    chapters = await api("/api/chapters");
+  } catch (error) {
+    bar.innerHTML = noticeHtml(error);
+    return;
+  }
   bar.innerHTML = "";
   for (const ch of chapters) {
     const div = document.createElement("div");
@@ -167,10 +235,20 @@ async function loadChapters() {
 /* ---------------- 题目页 ---------------- */
 
 async function openProblem(id) {
-  const p = await api("/api/problem?id=" + encodeURIComponent(id));
-  if (p.error) return;
+  saveDraftNow();
+  let p;
+  try {
+    p = await api("/api/problem?id=" + encodeURIComponent(id));
+  } catch (error) {
+    document.getElementById("main").innerHTML = `<div class="card">${noticeHtml(error)}</div>`;
+    return;
+  }
   state.problem = p;
   state.submitted = false;
+  const localDraft = getLocalDraft(p.id);
+  const initialCode = localDraft !== null ? localDraft : (p.saved_code || p.starter);
+  const draftMessage = localDraft !== null ? "已恢复浏览器草稿"
+    : (p.saved_code ? "已恢复最近一次错误提交" : "输入后将自动保存草稿");
 
   const examples = (p.examples || []).map(e =>
     `<div class="example">输入：${escapeHtml(e.input)}\n输出：${escapeHtml(e.output)}` +
@@ -188,10 +266,11 @@ async function openProblem(id) {
     </div>
     <div class="card">
       <h3>代码（Python）</h3>
-      <textarea id="code" spellcheck="false">${escapeHtml(p.starter)}</textarea>
+      <textarea id="code" spellcheck="false">${escapeHtml(initialCode)}</textarea>
       <div class="btn-row">
         <button id="btn-submit" onclick="submitCode()">提交判题</button>
         <button class="secondary" onclick="resetCode()">重置代码</button>
+        <span class="draft-status" id="draft-status">${draftMessage}</span>
       </div>
       <div id="result"></div>
     </div>
@@ -209,12 +288,15 @@ async function openProblem(id) {
       </div>
     </div>`;
 
-  document.getElementById("code").addEventListener("keydown", function (e) {
+  const editor = document.getElementById("code");
+  editor.addEventListener("input", scheduleDraftSave);
+  editor.addEventListener("keydown", function (e) {
     if (e.key === "Tab") {
       e.preventDefault();
       const s = this.selectionStart;
       this.value = this.value.slice(0, s) + "    " + this.value.slice(this.selectionEnd);
       this.selectionStart = this.selectionEnd = s + 4;
+      scheduleDraftSave();
     }
   });
 
@@ -223,7 +305,10 @@ async function openProblem(id) {
 }
 
 function resetCode() {
-  if (state.problem) document.getElementById("code").value = state.problem.starter;
+  if (!state.problem) return;
+  document.getElementById("code").value = state.problem.starter;
+  try { localStorage.removeItem(draftKey(state.problem.id)); } catch (error) { /* 忽略 */ }
+  updateDraftStatus("已重置为初始模板");
 }
 
 /* ---------------- 判题 ---------------- */
@@ -232,12 +317,15 @@ async function submitCode() {
   const btn = document.getElementById("btn-submit");
   btn.disabled = true; btn.textContent = "判题中…";
   const code = document.getElementById("code").value;
+  saveDraftNow();
   try {
     const r = await api("/api/submit", { id: state.problem.id, code });
     renderResult(r);
     state.submitted = true;
     document.getElementById("explanation").style.display = "block";
     renderHints();
+  } catch (error) {
+    document.getElementById("result").innerHTML = noticeHtml(error);
   } finally {
     btn.disabled = false; btn.textContent = "提交判题";
   }
@@ -293,6 +381,8 @@ async function diagnose() {
     document.getElementById("diagnosis").innerHTML =
       `<div class="diagnosis-box">${md(r.diagnosis || r.error || "诊断失败")}` +
       `<div class="chat-meta">${srcTag} · 已记入本题笔记</div></div>`;
+  } catch (error) {
+    document.getElementById("diagnosis").innerHTML = noticeHtml(error);
   } finally {
     btn.disabled = false; btn.textContent = "AI 诊断我的思路";
   }
@@ -320,8 +410,14 @@ async function loadLlmStatus() {
 /* ---------------- 追问 ---------------- */
 
 async function loadNotes() {
-  const { notes } = await api("/api/notes?problem_id=" + encodeURIComponent(state.problem.id));
   const log = document.getElementById("chat-log");
+  let notes;
+  try {
+    ({ notes } = await api("/api/notes?problem_id=" + encodeURIComponent(state.problem.id)));
+  } catch (error) {
+    log.innerHTML = noticeHtml(error);
+    return;
+  }
   if (!notes || !notes.length) return;
   log.innerHTML = "";
   for (const n of notes) appendChat(n.q, n.a, n.source, n.time);
@@ -335,7 +431,7 @@ function appendChat(q, a, source, time) {
   const srcTag = source === "ai" ? "AI" : "本地";
   log.insertAdjacentHTML("beforeend",
     `<div class="chat-q">${escapeHtml(q)}</div>` +
-    `<div class="chat-a">${md(a)}<div class="chat-meta">${srcTag} · ${time || ""}</div></div>`);
+    `<div class="chat-a">${md(a)}<div class="chat-meta">${srcTag} · ${escapeHtml(time || "")}</div></div>`);
 }
 
 async function ask() {
@@ -351,6 +447,9 @@ async function ask() {
     });
     appendChat(q, r.answer || r.error, r.source, new Date().toLocaleString());
     input.value = "";
+  } catch (error) {
+    const log = document.getElementById("chat-log");
+    log.insertAdjacentHTML("beforeend", noticeHtml(error));
   } finally {
     btn.disabled = false; btn.textContent = "提问";
     document.getElementById("chat-log").scrollTop = 1e9;
@@ -360,8 +459,15 @@ async function ask() {
 /* ---------------- 错题本 ---------------- */
 
 async function showWrong() {
-  const { wrong } = await api("/api/wrong");
+  saveDraftNow();
   const main = document.getElementById("main");
+  let wrong;
+  try {
+    ({ wrong } = await api("/api/wrong"));
+  } catch (error) {
+    main.innerHTML = `<div class="card">${noticeHtml(error)}</div>`;
+    return;
+  }
   state.problem = null;
   if (!wrong.length) {
     main.innerHTML = `<div class="card"><h2>错题本</h2><div class="empty">暂无错题，继续保持！</div></div>`;

@@ -86,6 +86,33 @@
         "别忘了空树直接返回空列表。"
       ],
       "explanation": "**核心思路：BFS + 记录每层节点数**\n\n层序遍历是广度优先搜索的经典应用。用队列维护待访问节点，难点在于「如何知道一层在哪里结束」。\n\n标准做法：在展开下一层之前，先取出当前队列的长度 n——这 n 个节点恰好构成当前层。连续出队 n 次，把值收集进本层列表，同时把它们的非空孩子依次入队（这些就是下一层的全部节点）。重复直到队列为空。\n\n**参考代码**\n```python\nfrom collections import deque\n\nclass Solution:\n    def levelOrder(self, root):\n        result = []\n        if root is None:\n            return result\n        queue = deque([root])\n        while queue:\n            level = []\n            for _ in range(len(queue)):\n                node = queue.popleft()\n                level.append(node.val)\n                if node.left:\n                    queue.append(node.left)\n                if node.right:\n                    queue.append(node.right)\n            result.append(level)\n        return result\n```\n\n**复杂度**：时间 O(n)，每个节点入队、出队各一次；空间 O(w)，队列中最多同时存放最宽一层的 w 个节点。\n\n**另一种思路：DFS 记录深度**\n递归遍历时携带当前深度 depth，把节点值追加到 result[depth]（result 长度不够就先补一个空列表）。先序遍历保证同层节点从左到右写入，结果与 BFS 完全一致。"
+    },
+    {
+      "id": "same-tree",
+      "title": "100. 相同的树",
+      "difficulty": "简单",
+      "description": "给定两棵二叉树的根结点 `p` 和 `q`，判断它们是否相同。\n\n如果两棵树结构完全一致，并且对应结点的值都相同，则认为它们相同。",
+      "examples": [
+        {"input": "p = [1,2,3], q = [1,2,3]", "output": "true"},
+        {"input": "p = [1,2], q = [1,null,2]", "output": "false"}
+      ],
+      "entry": "isSameTree",
+      "starter": "# TreeNode 已由判题器提供\nclass Solution:\n    def isSameTree(self, p: 'TreeNode', q: 'TreeNode') -> bool:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[1, 2, 3], [1, 2, 3]], "expected": true},
+        {"args": [[1, 2], [1, null, 2]], "expected": false},
+        {"args": [[1, 2, 1], [1, 1, 2]], "expected": false},
+        {"args": [[], []], "expected": true},
+        {"args": [[1], []], "expected": false}
+      ],
+      "codec": {"args": ["tree", "tree"]},
+      "compare": "exact",
+      "hints": [
+        "递归函数每次同时接收两棵树当前位置的结点。",
+        "两个结点都为空时相同；只有一个为空时不同。",
+        "当前值相同后，还必须递归比较左子树和右子树。"
+      ],
+      "explanation": "**核心思路：同步递归比较**\n\n每次同时观察 `p` 和 `q`：\n1. 两者都为空，当前位置相同；\n2. 只有一个为空，树的结构不同；\n3. 两者都存在但值不同，内容不同；\n4. 当前值相同，还要继续比较左子树和右子树。\n\n这四种情况覆盖了所有可能。递归定义直接对应“树相同”的定义，因此代码非常简洁。\n\n**参考代码**\n```python\nclass Solution:\n    def isSameTree(self, p, q):\n        if p is None and q is None:\n            return True\n        if p is None or q is None:\n            return False\n        return (p.val == q.val\n                and self.isSameTree(p.left, q.left)\n                and self.isSameTree(p.right, q.right))\n```\n\n**复杂度**：时间 O(n)，n 为需要检查的结点数；递归栈空间 O(h)，h 为树高。"
     }
   ]
 }

@@ -84,6 +84,32 @@
         "每次移动右指针后，用 right - left + 1 更新答案。"
       ],
       "explanation": "**核心思路：滑动窗口 + 哈希表记录最近出现位置**\n\n维护一个窗口 `[left, right]`，保证窗口内没有重复字符。右指针 `right` 从左到右扫描字符串：\n\n- 如果字符 `s[right]` 之前在窗口内出现过（即 `last[c] >= left`，`last[c]` 是该字符上一次出现的下标），说明有重复，把左边界直接跳到 `last[c] + 1`，一步收缩到位；\n- 否则无需收缩。\n- 更新 `last[c] = right`，并用当前窗口长度 `right - left + 1` 刷新最大值。\n\n**为什么 left 要取 `max(left, last[c] + 1)`**：`last[c]` 可能是窗口之外的旧记录（左边界已经越过它），这时不能往回跳。例如 `\"tmmzuxt\"`：扫描到第二个 `m` 时 left 跳到 2；之后窗口 `[m, z, u, x, t]` 长度为 5，即答案。\n\n**复杂度**：时间 O(n)，每个字符只被左右指针各访问一次；空间 O(k)，k 为字符集大小（本题至多为所有可见字符数）。\n\n**参考代码**\n```python\nclass Solution:\n    def lengthOfLongestSubstring(self, s: str) -> int:\n        last = {}  # 字符 -> 最近一次出现的下标\n        left = 0\n        ans = 0\n        for right, c in enumerate(s):\n            if c in last and last[c] >= left:\n                left = last[c] + 1\n            last[c] = right\n            ans = max(ans, right - left + 1)\n        return ans\n```"
+    },
+    {
+      "id": "longest-common-prefix",
+      "title": "14. 最长公共前缀",
+      "difficulty": "简单",
+      "description": "编写一个函数，找出字符串数组中的最长公共前缀。\n\n如果不存在公共前缀，返回空字符串 `\"\"`。",
+      "examples": [
+        {"input": "strs = [\"flower\",\"flow\",\"flight\"]", "output": "\"fl\""},
+        {"input": "strs = [\"dog\",\"racecar\",\"car\"]", "output": "\"\""}
+      ],
+      "entry": "longestCommonPrefix",
+      "starter": "class Solution:\n    def longestCommonPrefix(self, strs: list[str]) -> str:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [["flower", "flow", "flight"]], "expected": "fl"},
+        {"args": [["dog", "racecar", "car"]], "expected": ""},
+        {"args": [["alone"]], "expected": "alone"},
+        {"args": [["", "abc"]], "expected": ""},
+        {"args": [["interview", "internet", "internal", "into"]], "expected": "int"}
+      ],
+      "compare": "exact",
+      "hints": [
+        "可以先把第一个字符串当作候选前缀。",
+        "依次拿候选前缀与后面的字符串比较；如果不匹配，就不断删掉候选前缀的最后一个字符。",
+        "候选前缀一旦变成空字符串，就可以提前结束。"
+      ],
+      "explanation": "**核心思路：逐个缩短候选前缀**\n\n先假设第一个字符串就是最长公共前缀。随后遍历其他字符串：如果当前字符串不是以候选前缀开头，就从候选前缀末尾删掉一个字符，再继续检查，直到匹配或前缀为空。\n\n为什么这种做法正确？公共前缀一定也是第一个字符串的前缀；每遇到一个新字符串，我们只需要把不可能公共的尾部去掉。候选前缀只会越来越短，不会遗漏答案。\n\n**参考代码**\n```python\nclass Solution:\n    def longestCommonPrefix(self, strs: list[str]) -> str:\n        if not strs:\n            return \"\"\n        prefix = strs[0]\n        for text in strs[1:]:\n            while not text.startswith(prefix):\n                prefix = prefix[:-1]\n                if not prefix:\n                    return \"\"\n        return prefix\n```\n\n**复杂度**：设所有字符串总字符数为 S，时间最坏 O(S)，额外空间 O(1)。"
     }
   ]
 }

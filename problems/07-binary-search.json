@@ -1,0 +1,88 @@
+{
+  "chapter": "第 7 章 · 二分查找",
+  "problems": [
+    {
+      "id": "binary-search",
+      "title": "704. 二分查找",
+      "difficulty": "简单",
+      "description": "给定一个按升序排列且元素互不相同的整数数组 `nums`，以及目标值 `target`。如果目标值存在，返回它的下标；否则返回 -1。",
+      "examples": [
+        {"input": "nums = [-1,0,3,5,9,12], target = 9", "output": "4"},
+        {"input": "nums = [-1,0,3,5,9,12], target = 2", "output": "-1"}
+      ],
+      "entry": "search",
+      "starter": "class Solution:\n    def search(self, nums: list[int], target: int) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[-1, 0, 3, 5, 9, 12], 9], "expected": 4},
+        {"args": [[-1, 0, 3, 5, 9, 12], 2], "expected": -1},
+        {"args": [[5], 5], "expected": 0},
+        {"args": [[5], -5], "expected": -1},
+        {"args": [[1, 3, 5, 7, 9, 11], 1], "expected": 0},
+        {"args": [[1, 3, 5, 7, 9, 11], 11], "expected": 5}
+      ],
+      "compare": "exact",
+      "hints": [
+        "维护一个仍可能包含答案的闭区间 [left, right]。",
+        "中点值小于 target 时，答案只能在右半边；大于 target 时只能在左半边。",
+        "使用 mid = left + (right - left) // 2，并保证每次循环区间都严格缩小。"
+      ],
+      "explanation": "**核心思路：每次排除一半区间**\n\n数组有序，因此比较中点 `nums[mid]` 与目标值后，可以确定哪一半绝对不可能包含答案。使用闭区间 `[left, right]` 时，循环条件是 `left <= right`：\n- 中点等于目标，直接返回；\n- 中点偏小，令 `left = mid + 1`；\n- 中点偏大，令 `right = mid - 1`。\n\n初学者最容易错的是区间定义混乱。只要始终坚持“left 和 right 都是可能答案”，更新时就必须越过已经检查过的 mid。\n\n**参考代码**\n```python\nclass Solution:\n    def search(self, nums, target):\n        left = 0\n        right = len(nums) - 1\n        while left <= right:\n            mid = left + (right - left) // 2\n            if nums[mid] == target:\n                return mid\n            if nums[mid] < target:\n                left = mid + 1\n            else:\n                right = mid - 1\n        return -1\n```\n\n**复杂度**：时间 O(log n)，空间 O(1)。"
+    },
+    {
+      "id": "search-insert-position",
+      "title": "35. 搜索插入位置",
+      "difficulty": "简单",
+      "description": "给定一个排序数组和目标值。如果目标值存在，返回它的下标；否则返回它按顺序插入数组时的位置。要求使用 O(log n) 的算法。",
+      "examples": [
+        {"input": "nums = [1,3,5,6], target = 5", "output": "2"},
+        {"input": "nums = [1,3,5,6], target = 2", "output": "1"},
+        {"input": "nums = [1,3,5,6], target = 7", "output": "4"}
+      ],
+      "entry": "searchInsert",
+      "starter": "class Solution:\n    def searchInsert(self, nums: list[int], target: int) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[1, 3, 5, 6], 5], "expected": 2},
+        {"args": [[1, 3, 5, 6], 2], "expected": 1},
+        {"args": [[1, 3, 5, 6], 7], "expected": 4},
+        {"args": [[1, 3, 5, 6], 0], "expected": 0},
+        {"args": [[1], 1], "expected": 0},
+        {"args": [[1], 2], "expected": 1}
+      ],
+      "compare": "exact",
+      "hints": [
+        "本题不是只找“等于 target”，而是找第一个大于等于 target 的位置。",
+        "可以使用左闭右开区间 [left, right)，初始 right = len(nums)。",
+        "当 nums[mid] < target 时丢掉左半边，否则保留 mid 并向左继续找。"
+      ],
+      "explanation": "**核心思路：寻找第一个大于等于 target 的位置**\n\n插入位置的定义可以转化为一个稳定的二分模板：寻找最左侧满足 `nums[index] >= target` 的下标。如果所有元素都小于 target，答案就是数组长度。\n\n使用左闭右开区间 `[left, right)`：初始为 `[0, len(nums))`。循环结束时 left 与 right 重合，该位置正是第一个不小于 target 的位置。\n\n**参考代码**\n```python\nclass Solution:\n    def searchInsert(self, nums, target):\n        left = 0\n        right = len(nums)\n        while left < right:\n            mid = left + (right - left) // 2\n            if nums[mid] < target:\n                left = mid + 1\n            else:\n                right = mid\n        return left\n```\n\n**复杂度**：时间 O(log n)，空间 O(1)。掌握这个模板后，可以继续解决“第一个满足条件的位置”类问题。"
+    },
+    {
+      "id": "find-min-rotated",
+      "title": "153. 寻找旋转排序数组中的最小值",
+      "difficulty": "中等",
+      "description": "一个原本严格升序的数组经过若干次旋转，例如 `[0,1,2,4,5,6,7]` 可能变成 `[4,5,6,7,0,1,2]`。数组元素互不相同，请在 O(log n) 时间内找出最小元素。",
+      "examples": [
+        {"input": "nums = [3,4,5,1,2]", "output": "1"},
+        {"input": "nums = [4,5,6,7,0,1,2]", "output": "0"},
+        {"input": "nums = [11,13,15,17]", "output": "11"}
+      ],
+      "entry": "findMin",
+      "starter": "class Solution:\n    def findMin(self, nums: list[int]) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[3, 4, 5, 1, 2]], "expected": 1},
+        {"args": [[4, 5, 6, 7, 0, 1, 2]], "expected": 0},
+        {"args": [[11, 13, 15, 17]], "expected": 11},
+        {"args": [[2, 1]], "expected": 1},
+        {"args": [[1]], "expected": 1},
+        {"args": [[5, 1, 2, 3, 4]], "expected": 1}
+      ],
+      "compare": "exact",
+      "hints": [
+        "把中点与区间最右端比较，而不是与第一个元素比较。",
+        "如果 nums[mid] > nums[right]，最小值一定在 mid 右侧。",
+        "否则最小值在 mid 或其左侧，因此 right 可以直接移动到 mid。"
+      ],
+      "explanation": "**核心思路：判断最小值位于哪一半**\n\n旋转数组由两个递增片段组成。比较 `nums[mid]` 和 `nums[right]`：\n- 若 `nums[mid] > nums[right]`，中点位于较大的左片段，最小值一定在 mid 右边，令 `left = mid + 1`；\n- 否则中点位于包含最小值的右片段，或者数组根本没有旋转，此时最小值可能就是 mid，令 `right = mid`。\n\n循环结束时 left 与 right 相等，指向唯一可能的最小值。\n\n**参考代码**\n```python\nclass Solution:\n    def findMin(self, nums):\n        left = 0\n        right = len(nums) - 1\n        while left < right:\n            mid = left + (right - left) // 2\n            if nums[mid] > nums[right]:\n                left = mid + 1\n            else:\n                right = mid\n        return nums[left]\n```\n\n**复杂度**：时间 O(log n)，空间 O(1)。本题帮助你理解二分查找并不只用于寻找某个具体数字。"
+    }
+  ]
+}
