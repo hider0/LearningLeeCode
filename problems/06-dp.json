@@ -106,6 +106,60 @@
         "第一行和第一列都只有一种走法；还可以把二维 dp 压缩成一维。"
       ],
       "explanation": "**核心思路：网格动态规划**\n\n定义 `dp[row][col]` 为走到当前格子的路径数量。最后一步只可能从上方下来，或从左边过来，所以两种来源相加：`dp[row][col] = dp[row-1][col] + dp[row][col-1]`。\n\n第一行只能一直向右，第一列只能一直向下，所以这些位置的路径数都是 1。为了节省空间，可以只保留一行：`dp[col]` 在更新前代表上方格子的路径数，`dp[col-1]` 代表左方格子的路径数，直接执行 `dp[col] += dp[col-1]`。\n\n**参考代码**\n```python\nclass Solution:\n    def uniquePaths(self, m: int, n: int) -> int:\n        dp = [1] * n\n        for row in range(1, m):\n            for col in range(1, n):\n                dp[col] += dp[col - 1]\n        return dp[-1]\n```\n\n**复杂度**：时间 O(mn)，空间 O(n)。如果 n 比 m 大，也可以交换二者，使空间为 O(min(m,n))。"
+    },
+    {
+      "id": "max-subarray",
+      "title": "53. 最大子数组和",
+      "difficulty": "中等",
+      "description": "给你一个整数数组 `nums`，请你找出一个具有最大和的**连续子数组**（子数组最少包含一个元素），返回其最大和。\n\n**子数组** 是数组中的一个连续部分。",
+      "examples": [
+        {"input": "nums = [-2,1,-3,4,-1,2,1,-5,4]", "output": "6", "explanation": "连续子数组 [4,-1,2,1] 的和最大，为 6。"},
+        {"input": "nums = [1]", "output": "1"},
+        {"input": "nums = [5,4,-1,7,8]", "output": "23"}
+      ],
+      "entry": "maxSubArray",
+      "starter": "class Solution:\n    def maxSubArray(self, nums: list[int]) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[-2, 1, -3, 4, -1, 2, 1, -5, 4]], "expected": 6},
+        {"args": [[1]], "expected": 1},
+        {"args": [[5, 4, -1, 7, 8]], "expected": 23},
+        {"args": [[-3, -1, -2]], "expected": -1},
+        {"args": [[-2, -1]], "expected": -1}
+      ],
+      "compare": "exact",
+      "hints": [
+        "遍历到某个元素时，值得思考的问题不是「前面最大和是多少」，而是「以这个元素结尾的子数组，最大和是多少」。",
+        "设 f(i) 表示以 nums[i] 结尾的连续子数组的最大和，它要么接着前面的 f(i-1) 继续累加，要么从 nums[i] 重新开始。",
+        "状态转移：f(i) = max(f(i-1) + nums[i], nums[i])，答案是所有 f(i) 中的最大值。f 只依赖前一项，用一个变量滚动即可，这就是 Kadane 算法。注意全负数数组也能自然得到正确结果，不需要特判。"
+      ],
+      "explanation": "**核心思路：Kadane 算法（以 i 结尾的一维 DP + 滚动变量）**\n\n设 f(i) 表示**以 nums[i] 结尾**的连续子数组的最大和。对 nums[i] 只有两种选择：\n- 接在以 nums[i-1] 结尾的最优子数组后面，和为 f(i-1) + nums[i]；\n- 前面的累加和已经是拖累，干脆从 nums[i] 重新开始，和为 nums[i]。\n\n状态转移方程：\n\n**f(i) = max(f(i-1) + nums[i], nums[i])**\n\n由于子数组必须连续，最终答案不是 f(n-1)，而是所有 f(i) 中的最大值。\n\n**算法步骤**\n1. 用变量 cur 记录「以当前元素结尾的最大和」，初始为 nums[0]；ans 记录全局最大值。\n2. 从第二个元素开始遍历：cur = max(cur + x, x)，同时 ans = max(ans, cur)。\n3. 遍历结束，ans 即为答案。\n\n**为什么全负数也不用特判**：状态定义强制子数组非空，cur 至少等于某个元素本身，因此 ans 自然等于数组中的最大元素（如 [-3,-1,-2] 返回 -1）。\n\n**复杂度**：时间 O(n)，空间 O(1)。\n\n**参考代码**\n```python\nclass Solution:\n    def maxSubArray(self, nums):\n        cur = ans = nums[0]\n        for x in nums[1:]:\n            cur = max(cur + x, x)\n            ans = max(ans, cur)\n        return ans\n```"
+    },
+    {
+      "id": "longest-increasing-subsequence",
+      "title": "300. 最长递增子序列",
+      "difficulty": "中等",
+      "description": "给你一个整数数组 `nums`，找到其中**最长严格递增子序列**的长度。\n\n**子序列** 是由数组派生而来的序列，删除（或不删除）数组中的元素而不改变其余元素的顺序。例如 `[3,6,2,7]` 是数组 `[0,3,1,6,2,2,7]` 的子序列。",
+      "examples": [
+        {"input": "nums = [10,9,2,5,3,7,101,18]", "output": "4", "explanation": "最长递增子序列是 [2,3,7,101]，因此长度为 4。"},
+        {"input": "nums = [0,1,0,3,2,3]", "output": "4"},
+        {"input": "nums = [7,7,7,7,7,7,7]", "output": "1"}
+      ],
+      "entry": "lengthOfLIS",
+      "starter": "class Solution:\n    def lengthOfLIS(self, nums: list[int]) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[10, 9, 2, 5, 3, 7, 101, 18]], "expected": 4},
+        {"args": [[0, 1, 0, 3, 2, 3]], "expected": 4},
+        {"args": [[7, 7, 7, 7, 7, 7, 7]], "expected": 1},
+        {"args": [[1]], "expected": 1},
+        {"args": [[4, 10, 4, 3, 8, 9]], "expected": 3}
+      ],
+      "compare": "exact",
+      "hints": [
+        "和子数组不同，子序列不要求连续，所以「以 i 结尾」的状态需要回顾 i 之前的**所有**位置。",
+        "设 dp[i] 表示以 nums[i] 结尾的最长递增子序列长度。对每个 j < i，只要 nums[j] < nums[i]，就可以把 nums[i] 接在以 nums[j] 结尾的子序列后面。",
+        "状态转移：dp[i] = max(dp[j] + 1)，其中 j < i 且 nums[j] < nums[i]，初始 dp[i] = 1，答案是 max(dp)，时间 O(n²)。进阶：维护 tails 数组 + 二分查找可以把复杂度降到 O(n log n)。"
+      ],
+      "explanation": "**核心思路：以 i 结尾的一维动态规划（O(n²)）**\n\n设 dp[i] 表示**以 nums[i] 结尾**的最长严格递增子序列的长度。\n\n由于子序列不要求连续，nums[i] 可以接在任意满足 j < i 且 nums[j] < nums[i] 的子序列后面，因此：\n\n**dp[i] = max(dp[j] + 1)**，对所有满足 j < i 且 nums[j] < nums[i] 的 j 取最大；若没有这样的 j，dp[i] = 1（自成长度为 1 的序列）。\n\n**算法步骤**\n1. 初始化 dp 数组全为 1。\n2. 对每个 i，枚举 j 从 0 到 i-1，若 nums[j] < nums[i]，则 dp[i] = max(dp[i], dp[j] + 1)。\n3. 返回 max(dp)（注意不是 dp 的最后一个元素，因为最长子序列可以以任意位置结尾）。\n\n**常见陷阱**：\n- 转移条件必须是严格小于（`nums[j] < nums[i]`),因为题目要求**严格**递增；用 `<=` 会在 [7,7,7] 这类用例上出错。\n- 答案是整个 dp 数组的最大值，不是 dp[-1]。\n\n**复杂度**：时间 O(n²)，空间 O(n)。进阶可用 tails 数组 + 二分查找优化到 O(n log n)。\n\n**参考代码**\n```python\nclass Solution:\n    def lengthOfLIS(self, nums):\n        n = len(nums)\n        dp = [1] * n\n        for i in range(n):\n            for j in range(i):\n                if nums[j] < nums[i] and dp[j] + 1 > dp[i]:\n                    dp[i] = dp[j] + 1\n        return max(dp)\n```"
     }
   ]
 }

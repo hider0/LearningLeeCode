@@ -115,6 +115,59 @@
         "遇到更高温度时，不断弹出栈顶；当前下标减去弹出的下标，就是等待天数。"
       ],
       "explanation": "**核心思路：单调栈**\n\n栈中保存那些“还没有等到更高温度”的天数下标，并保持对应温度从栈底到栈顶单调不升。遍历到今天 `i` 时，如果今天比栈顶那天更热，说明栈顶终于找到了答案：等待天数是 `i - previous`。继续弹栈，直到栈为空或栈顶温度不低于今天。最后把今天的下标压栈，等待未来更高温度。\n\n每个下标最多入栈一次、出栈一次，因此虽然代码里有 while 循环，总时间仍是 O(n)。\n\n**参考代码**\n```python\nclass Solution:\n    def dailyTemperatures(self, temperatures):\n        answer = [0] * len(temperatures)\n        stack = []\n        for index, temperature in enumerate(temperatures):\n            while stack and temperatures[stack[-1]] < temperature:\n                previous = stack.pop()\n                answer[previous] = index - previous\n            stack.append(index)\n        return answer\n```\n\n**复杂度**：时间 O(n)，空间 O(n)。"
+    },
+    {
+      "id": "decode-string",
+      "title": "394. 字符串解码",
+      "difficulty": "中等",
+      "description": "给定一个经过编码的字符串 `s`，返回它解码后的字符串。\n\n编码规则为：`k[encoded_string]`，表示其中方括号内部的 `encoded_string` 正好重复 `k` 次。注意 `k` 保证为正整数。\n\n你可以认为输入字符串总是有效的：没有多余的空格，且方括号总是成对出现、格式正确。\n\n此外，你可以认为原始数据不包含数字，所有数字只表示重复次数 `k`，例如不会出现 `3a` 或 `2[4]` 这样的输入。\n\n**注意**：编码可以嵌套，例如 `3[a2[c]]` 需要先解码内层 `2[c]`，再重复外层。",
+      "examples": [
+        {"input": "s = \"3[a]2[bc]\"", "output": "\"aaabcbc\""},
+        {"input": "s = \"3[a2[c]]\"", "output": "\"accaccacc\""},
+        {"input": "s = \"2[abc]3[cd]ef\"", "output": "\"abcabccdcdcdef\""}
+      ],
+      "entry": "decodeString",
+      "starter": "class Solution:\n    def decodeString(self, s: str) -> str:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": ["3[a]2[bc]"], "expected": "aaabcbc"},
+        {"args": ["3[a2[c]]"], "expected": "accaccacc"},
+        {"args": ["2[abc]3[cd]ef"], "expected": "abcabccdcdcdef"},
+        {"args": ["abc"], "expected": "abc"},
+        {"args": ["10[a]"], "expected": "aaaaaaaaaa"}
+      ],
+      "compare": "exact",
+      "hints": [
+        "嵌套的 `k[...]` 结构中，内层总是先被完整解码，这正是后进先出的场景，适合用栈。",
+        "用两个栈分别保存「进入括号前的字符串」和「重复次数 k」；遇到 `[` 时把当前数字和已拼好的片段入栈，然后清零重新开始。",
+        "遇到 `]` 时弹出重复次数 k 和外层片段，把当前片段重复 k 次后拼接到外层片段末尾；注意数字可能有多位，需要逐位累积。"
+      ],
+      "explanation": "**核心思路：双栈处理嵌套编码**\n\n编码字符串 `k[...]` 可以嵌套，而内层必须先解码完成才能参与外层的重复——「最后进入的括号最先闭合」，正好是栈的后进先出特性。\n\n**算法步骤**\n1. 维护两个栈：数字栈 `num_stack` 保存重复次数，字符串栈 `str_stack` 保存进入括号前已解码的片段；同时用 `current` 记录当前正在解码的片段，用 `number` 累积当前读到的数字。\n2. 遍历字符串 `s` 中的每个字符 `c`：\n   - `c` 是数字：`number = number * 10 + int(c)`，逐位累积（`k` 可能是多位数，如 `10[a]`）；\n   - `c` 是 `'['`：把 `number` 和 `current` 分别压入两个栈，然后重置 `number = 0`、`current = ''`，开始解码括号内的新片段；\n   - `c` 是 `']'`：弹出重复次数 `k` 和外层片段 `outer`，当前片段解码完成，更新 `current = outer + k * current`；\n   - `c` 是字母：直接拼到 `current` 末尾。\n3. 遍历结束后 `current` 就是完整解码结果。\n\n**关键点**：遇到 `[` 时入栈保存现场、遇到 `]` 时弹栈恢复现场并拼接，天然支持任意深度的嵌套。例如 `3[a2[c]]`：读 `2[c]` 时外层片段 `\"a\"` 已入栈，内层解码出 `\"cc\"` 后与 `\"a\"` 拼成 `\"acc\"`，最后整体重复 3 次。\n\n**边界情况**：不含任何编码的普通字符串（如 `\"abc\"`）只会走字母分支，原样返回。\n\n**复杂度**：时间 O(n + m)，n 是输入长度，m 是解码后字符串的总长度（每个输出字符只被拼接一次）；空间 O(n)，栈最多保存输入中的嵌套层数与片段。\n\n**参考代码**\n```python\nclass Solution:\n    def decodeString(self, s: str) -> str:\n        num_stack = []\n        str_stack = []\n        current = ''\n        number = 0\n        for c in s:\n            if c.isdigit():\n                number = number * 10 + int(c)\n            elif c == '[':\n                num_stack.append(number)\n                str_stack.append(current)\n                number = 0\n                current = ''\n            elif c == ']':\n                repeat = num_stack.pop()\n                outer = str_stack.pop()\n                current = outer + repeat * current\n            else:\n                current += c\n        return current\n```"
+    },
+    {
+      "id": "next-greater-element",
+      "title": "496. 下一个更大元素 I",
+      "difficulty": "简单",
+      "description": "`nums1` 中每个整数都在 `nums2` 中出现过（`nums1` 是 `nums2` 的子集），且两个数组都**没有重复元素**。对于 `nums1` 中的每个元素，请找出它在 `nums2` 中的位置之后，第一个比它大的元素；如果不存在这样的元素，则对应答案是 `-1`。\n\n返回一个长度与 `nums1` 相同的数组 `answer`，其中 `answer[i]` 就是 `nums1[i]` 的下一个更大元素。",
+      "examples": [
+        {"input": "nums1 = [4,1,2], nums2 = [1,3,4,2]", "output": "[-1,3,-1]", "explanation": "4 在 nums2 中后面没有更大的元素；1 的下一个更大元素是 3；2 是最后一个元素，没有下一个更大元素。"},
+        {"input": "nums1 = [2,4], nums2 = [1,2,3,4]", "output": "[3,-1]", "explanation": "2 的下一个更大元素是 3；4 后面没有更大的元素。"}
+      ],
+      "entry": "nextGreaterElement",
+      "starter": "class Solution:\n    def nextGreaterElement(self, nums1: list[int], nums2: list[int]) -> list[int]:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[4, 1, 2], [1, 3, 4, 2]], "expected": [-1, 3, -1]},
+        {"args": [[2, 4], [1, 2, 3, 4]], "expected": [3, -1]},
+        {"args": [[1], [1]], "expected": [-1]},
+        {"args": [[1, 3, 5], [5, 3, 1]], "expected": [-1, -1, -1]},
+        {"args": [[5, 2, 3], [1, 3, 5, 2, 4]], "expected": [-1, 4, 5]}
+      ],
+      "compare": "exact",
+      "hints": [
+        "对每个元素向后暴力扫描是 O(n²)，想想「每日温度」里如何用一次遍历解决所有「下一个更大」的询问。",
+        "对 `nums2` 维护一个单调递减栈：遇到比栈顶大的元素时，它就是栈顶元素的下一个更大值，弹出并记录下来。",
+        "用哈希表保存「元素 → 下一个更大元素」，预处理完 `nums2` 后，直接查表回答 `nums1` 中的每个询问，查不到就是 -1。"
+      ],
+      "explanation": "**核心思路：单调递减栈 + 哈希表预处理**\n\n如果先对 `nums2` 一次性算出每个元素的「下一个更大元素」，那么 `nums1` 中的每个询问就只是一次哈希表查找。而「下一个更大元素」正是单调栈的经典问题。\n\n**算法步骤**\n1. 准备一个空栈（保持栈内元素从栈底到栈顶单调递减）和一个哈希表 `next_greater`。\n2. 遍历 `nums2` 中的每个元素 `num`：\n   - 只要栈非空且栈顶元素小于 `num`，说明栈顶元素等到了它的下一个更大值：弹出栈顶，记录 `next_greater[栈顶] = num`；\n   - 把 `num` 压入栈中（它也在等待自己的下一个更大值）。\n3. 遍历结束后仍留在栈中的元素，右侧没有更大的值，哈希表里查不到，答案取 `-1`。\n4. 对 `nums1` 中的每个元素查表，组成结果数组返回。\n\n**为什么是正确的**：栈内保持单调递减，所以当 `num` 出现时，栈中所有比它小的元素构成一段连续栈顶，它们的下一个更大元素都是 `num`；每个元素最多入栈、出栈一次，预处理总时间 O(n)。\n\n**复杂度**：时间 O(n + m)，n、m 分别是 `nums2`、`nums1` 的长度；空间 O(n)，用于栈和哈希表。\n\n**参考代码**\n```python\nclass Solution:\n    def nextGreaterElement(self, nums1: list[int], nums2: list[int]) -> list[int]:\n        next_greater = {}\n        stack = []\n        for num in nums2:\n            while stack and stack[-1] < num:\n                next_greater[stack.pop()] = num\n            stack.append(num)\n        return [next_greater.get(num, -1) for num in nums1]\n```"
     }
   ]
 }

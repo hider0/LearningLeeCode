@@ -30,7 +30,7 @@ class ProblemBankTest(unittest.TestCase):
                 test_count += len(problem["tests"])
 
         self.assertEqual(chapter_count, 7)
-        self.assertEqual(len(problem_ids), 27)
+        self.assertEqual(len(problem_ids), 41)
         self.assertGreaterEqual(test_count, 120)
 
     def test_all_reference_solutions_pass(self):

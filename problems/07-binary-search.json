@@ -83,6 +83,59 @@
         "否则最小值在 mid 或其左侧，因此 right 可以直接移动到 mid。"
       ],
       "explanation": "**核心思路：判断最小值位于哪一半**\n\n旋转数组由两个递增片段组成。比较 `nums[mid]` 和 `nums[right]`：\n- 若 `nums[mid] > nums[right]`，中点位于较大的左片段，最小值一定在 mid 右边，令 `left = mid + 1`；\n- 否则中点位于包含最小值的右片段，或者数组根本没有旋转，此时最小值可能就是 mid，令 `right = mid`。\n\n循环结束时 left 与 right 相等，指向唯一可能的最小值。\n\n**参考代码**\n```python\nclass Solution:\n    def findMin(self, nums):\n        left = 0\n        right = len(nums) - 1\n        while left < right:\n            mid = left + (right - left) // 2\n            if nums[mid] > nums[right]:\n                left = mid + 1\n            else:\n                right = mid\n        return nums[left]\n```\n\n**复杂度**：时间 O(log n)，空间 O(1)。本题帮助你理解二分查找并不只用于寻找某个具体数字。"
+    },
+    {
+      "id": "search-rotated-array",
+      "title": "33. 搜索旋转排序数组",
+      "difficulty": "中等",
+      "description": "一个元素互不相同的整数数组原本按升序排列，可能经过了若干次旋转，例如 `[0,1,2,4,5,6,7]` 可能变成 `[4,5,6,7,0,1,2]`。请在 O(log n) 时间内查找 `target`：如果存在返回它的下标，否则返回 -1。",
+      "examples": [
+        {"input": "nums = [4,5,6,7,0,1,2], target = 0", "output": "4"},
+        {"input": "nums = [4,5,6,7,0,1,2], target = 3", "output": "-1"},
+        {"input": "nums = [1], target = 0", "output": "-1"}
+      ],
+      "entry": "search",
+      "starter": "class Solution:\n    def search(self, nums: list[int], target: int) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[4, 5, 6, 7, 0, 1, 2], 0], "expected": 4},
+        {"args": [[4, 5, 6, 7, 0, 1, 2], 3], "expected": -1},
+        {"args": [[1], 0], "expected": -1},
+        {"args": [[1, 3], 3], "expected": 1},
+        {"args": [[5, 1, 3], 5], "expected": 0}
+      ],
+      "compare": "exact",
+      "hints": [
+        "旋转数组虽然整体无序，但任意一次二分后，两半中至少有一半是完全有序的。",
+        "先判断 nums[left] 到 nums[mid] 是否有序，再看 target 是否落在这个有序半区的数值范围内。",
+        "落在有序半区内就向该半区收缩，否则向另一半收缩；每次循环都排除一半。"
+      ],
+      "explanation": "**核心思路：先判断哪半区有序，再判断 target 的位置**\n\n旋转数组的二分关键在于：无论怎么切，中点两侧的半区中**至少有一个是完全有序的**。每次循环分两步：\n- 用 `nums[left] <= nums[mid]` 判断左半区是否有序（否则右半区有序）；\n- 检查 target 是否落在有序半区的数值范围内。若在，就把搜索区间收缩到该半区；否则收缩到另一半区。\n\n这样每次都能排除一半区间，整体只需一次二分。\n\n**参考代码**\n```python\nclass Solution:\n    def search(self, nums, target):\n        left = 0\n        right = len(nums) - 1\n        while left <= right:\n            mid = left + (right - left) // 2\n            if nums[mid] == target:\n                return mid\n            if nums[left] <= nums[mid]:  # 左半区有序\n                if nums[left] <= target < nums[mid]:\n                    right = mid - 1\n                else:\n                    left = mid + 1\n            else:  # 右半区有序\n                if nums[mid] < target <= nums[right]:\n                    left = mid + 1\n                else:\n                    right = mid - 1\n        return -1\n```\n\n**复杂度**：时间 O(log n)，空间 O(1)。注意判断有序半区时用 `<=`，保证区间只剩两个元素时仍然正确。"
+    },
+    {
+      "id": "find-peak-element",
+      "title": "162. 寻找峰值",
+      "difficulty": "中等",
+      "description": "峰值元素是指其值严格大于左右相邻值的元素。给定一个整数数组 `nums`，其中任意相邻元素互不相等，请返回某个峰值元素的下标。可以认为 `nums[-1]` 和 `nums[n]` 为负无穷。要求使用 O(log n) 的算法。\n\n**说明**：本题所有测试数据都保证峰值下标唯一。",
+      "examples": [
+        {"input": "nums = [1,2,3,1]", "output": "2", "explanation": "3 是峰值元素，返回下标 2"},
+        {"input": "nums = [1,2]", "output": "1", "explanation": "2 是峰值元素，返回下标 1"}
+      ],
+      "entry": "findPeakElement",
+      "starter": "class Solution:\n    def findPeakElement(self, nums: list[int]) -> int:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[1, 2, 3, 1]], "expected": 2},
+        {"args": [[1, 2]], "expected": 1},
+        {"args": [[2, 1]], "expected": 0},
+        {"args": [[1, 3, 5, 7, 6]], "expected": 3},
+        {"args": [[1, 2, 3, 4, 5]], "expected": 4}
+      ],
+      "compare": "exact",
+      "hints": [
+        "峰值一定存在：数组两端被看作负无穷，所以只要沿着「上坡」方向走，终点就是峰值。",
+        "比较 nums[mid] 与 nums[mid+1]：如果前者更小，说明 mid 处于上坡，峰值一定在右侧。",
+        "当 nums[mid] > nums[mid+1] 时，mid 本身可能就是峰值，因此 right 移到 mid 而不是 mid - 1。"
+      ],
+      "explanation": "**核心思路：沿着上坡方向二分**\n\n因为 `nums[-1]` 与 `nums[n]` 视为负无穷，数组中必然存在峰值。每次比较相邻的两个元素：\n- 若 `nums[mid] < nums[mid+1]`，mid 处于上坡段，沿着上升方向必能到达峰值，令 `left = mid + 1`；\n- 否则 mid 处于下坡段或本身就是峰值，峰值在 mid 或其左侧，令 `right = mid`。\n\n循环结束时 left 与 right 重合，指向峰值下标。\n\n**参考代码**\n```python\nclass Solution:\n    def findPeakElement(self, nums):\n        left = 0\n        right = len(nums) - 1\n        while left < right:\n            mid = left + (right - left) // 2\n            if nums[mid] < nums[mid + 1]:\n                left = mid + 1\n            else:\n                right = mid\n        return left\n```\n\n**复杂度**：时间 O(log n)，空间 O(1)。本题说明二分查找不要求数组整体有序，只要能确定答案在哪一半即可。"
     }
   ]
 }

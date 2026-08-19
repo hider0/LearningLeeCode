@@ -113,6 +113,61 @@
         "当前值相同后，还必须递归比较左子树和右子树。"
       ],
       "explanation": "**核心思路：同步递归比较**\n\n每次同时观察 `p` 和 `q`：\n1. 两者都为空，当前位置相同；\n2. 只有一个为空，树的结构不同；\n3. 两者都存在但值不同，内容不同；\n4. 当前值相同，还要继续比较左子树和右子树。\n\n这四种情况覆盖了所有可能。递归定义直接对应“树相同”的定义，因此代码非常简洁。\n\n**参考代码**\n```python\nclass Solution:\n    def isSameTree(self, p, q):\n        if p is None and q is None:\n            return True\n        if p is None or q is None:\n            return False\n        return (p.val == q.val\n                and self.isSameTree(p.left, q.left)\n                and self.isSameTree(p.right, q.right))\n```\n\n**复杂度**：时间 O(n)，n 为需要检查的结点数；递归栈空间 O(h)，h 为树高。"
+    },
+    {
+      "id": "path-sum",
+      "title": "112. 路径总和",
+      "difficulty": "简单",
+      "description": "给你二叉树的根节点 `root` 和一个表示目标和的整数 `targetSum`。判断该树中是否存在**根节点到叶子节点**的路径，这条路径上所有节点值相加等于 `targetSum`。如果存在，返回 `true`；否则，返回 `false`。\n\n**说明**：叶子节点是指没有子节点的节点。",
+      "examples": [
+        {"input": "root = [5,4,8,11,null,13,4,7,2,null,null,null,1], targetSum = 22", "output": "true", "explanation": "等于目标和的路径为 5 -> 4 -> 11 -> 2，节点值之和为 22。"},
+        {"input": "root = [1,2,3], targetSum = 5", "output": "false"},
+        {"input": "root = [], targetSum = 0", "output": "false", "explanation": "树为空，不存在根到叶子的路径。"}
+      ],
+      "entry": "hasPathSum",
+      "starter": "# 系统已预置 TreeNode 定义，可直接使用：\n# class TreeNode:\n#     def __init__(self, val=0, left=None, right=None):\n#         self.val = val\n#         self.left = left\n#         self.right = right\n\nclass Solution:\n    def hasPathSum(self, root: TreeNode | None, targetSum: int) -> bool:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[5, 4, 8, 11, null, 13, 4, 7, 2, null, null, null, 1], 22], "expected": true},
+        {"args": [[1, 2, 3], 5], "expected": false},
+        {"args": [[], 0], "expected": false},
+        {"args": [[1, 2], 1], "expected": false},
+        {"args": [[1], 1], "expected": true}
+      ],
+      "compare": "exact",
+      "codec": {"args": ["tree"]},
+      "hints": [
+        "路径必须从根节点开始，到叶子节点结束，中途中断不算。",
+        "每向下走一步，可以把「还差多少」从 targetSum 中减去当前节点值，把问题交给子树。",
+        "递归终止分两种：节点为空返回 false；节点是叶子时，直接判断它的值是否等于剩余的 targetSum。注意根节点不是叶子时不能算一条路径（如 [1,2] 目标和为 1 应为 false）。"
+      ],
+      "explanation": "**核心思路：递归减去节点值（DFS）**\n\n把「是否存在和为 targetSum 的根到叶子路径」转化为子问题：\n\n- 当前节点为空，说明这条路上没有可走的路，返回 false；\n- 当前节点是叶子，路径在此结束，判断节点值是否恰好等于剩余的 targetSum；\n- 否则把 targetSum 减去当前节点值，分别问左右子树，只要一边成立就返回 true。\n\n关键点在于「叶子」的判断：只有左右孩子都为空才算路径终点。像 `root = [1,2], targetSum = 1` 这种情况，根节点 1 不是叶子，累加到叶子 2 的和是 3，答案应为 false。\n\n**参考代码**\n```python\nclass Solution:\n    def hasPathSum(self, root, targetSum):\n        if root is None:\n            return False\n        if root.left is None and root.right is None:\n            return root.val == targetSum\n        rest = targetSum - root.val\n        return (self.hasPathSum(root.left, rest)\n                or self.hasPathSum(root.right, rest))\n```\n\n**复杂度**：时间 O(n)，最坏情况下每个节点访问一次；空间 O(h)，递归调用栈深度等于树高 h。\n\n**另一种思路：迭代 DFS**\n用栈保存「节点 + 从根到该节点的累计和」，弹出叶子节点时比较累计和与 targetSum。逻辑与递归完全一致，只是显式维护栈。"
+    },
+    {
+      "id": "construct-tree-pre-in",
+      "title": "105. 从前序与中序遍历序列构造二叉树",
+      "difficulty": "中等",
+      "description": "给定两个整数数组 `preorder` 和 `inorder`，其中 `preorder` 是二叉树的**前序遍历**，`inorder` 是同一棵树的**中序遍历**，请构造二叉树并返回其根节点。\n\n**说明**：可以假设树中没有重复的元素。",
+      "examples": [
+        {"input": "preorder = [3,9,20,15,7], inorder = [9,3,15,20,7]", "output": "[3,9,20,null,null,15,7]"},
+        {"input": "preorder = [-1], inorder = [-1]", "output": "[-1]"}
+      ],
+      "entry": "buildTree",
+      "starter": "# 系统已预置 TreeNode 定义，可直接使用：\n# class TreeNode:\n#     def __init__(self, val=0, left=None, right=None):\n#         self.val = val\n#         self.left = left\n#         self.right = right\n\nclass Solution:\n    def buildTree(self, preorder: list[int], inorder: list[int]) -> TreeNode | None:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[3, 9, 20, 15, 7], [9, 3, 15, 20, 7]], "expected": [3, 9, 20, null, null, 15, 7]},
+        {"args": [[-1], [-1]], "expected": [-1]},
+        {"args": [[1, 2], [2, 1]], "expected": [1, 2]},
+        {"args": [[1, 2], [1, 2]], "expected": [1, null, 2]},
+        {"args": [[1, 2, 4, 5, 3, 6], [4, 2, 5, 1, 3, 6]], "expected": [1, 2, 3, 4, 5, null, 6]}
+      ],
+      "compare": "exact",
+      "codec": {"result": "tree"},
+      "hints": [
+        "前序遍历的第一个元素一定是整棵树的根节点。",
+        "在中序遍历中找到根节点的位置，它左边的元素构成左子树、右边的元素构成右子树；左子树的元素个数也决定了它在前序中占据的区间。",
+        "为避免每次都在中序数组里线性查找根的位置，先用哈希表记录「值 -> 中序下标」；递归时用前序区间 [pre_l, pre_r] 和中序区间 [in_l, in_r] 定位左右子树，而不是真的切分数组。"
+      ],
+      "explanation": "**核心思路：前序定根 + 中序分左右，哈希表加速定位**\n\n前序遍历的顺序是「根、左、右」，所以 `preorder[0]` 就是根节点。在中序遍历里找到根的位置 k，那么：\n\n- `inorder[in_l .. k-1]` 是左子树的中序，`inorder[k+1 .. in_r]` 是右子树的中序；\n- 左子树大小为 `k - in_l`，于是前序中 `preorder[pre_l+1 .. pre_l+左子树大小]` 属于左子树，其余属于右子树。\n\n对左右子树递归执行同样的划分即可还原整棵树。预先建立「值 -> 中序下标」的哈希表，把每次 O(n) 的查找降到 O(1)。\n\n**参考代码**\n```python\nclass Solution:\n    def buildTree(self, preorder, inorder):\n        index = {v: i for i, v in enumerate(inorder)}\n\n        def build(pre_l, pre_r, in_l, in_r):\n            if pre_l > pre_r:\n                return None\n            root = TreeNode(preorder[pre_l])\n            k = index[preorder[pre_l]]\n            left_size = k - in_l\n            root.left = build(pre_l + 1, pre_l + left_size, in_l, k - 1)\n            root.right = build(pre_l + left_size + 1, pre_r, k + 1, in_r)\n            return root\n\n        return build(0, len(preorder) - 1, 0, len(inorder) - 1)\n```\n\n**复杂度**：时间 O(n)，每个节点恰好被创建一次，定位根位置靠哈希表 O(1)；空间 O(n)，哈希表占 O(n)，递归栈深度为树高 h（最坏 O(n)）。\n\n**另一种思路：切分数组**\n递归时直接传入 `preorder[1:1+left_size]` 等切片，写起来更短，但每次切片都复制 O(n) 数据，总复杂度退化为 O(n²)，数据量大时不如传下标区间。"
     }
   ]
 }

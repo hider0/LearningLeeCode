@@ -108,6 +108,58 @@
         "更直接的方法是用哈希表统计 s 中每个字符的次数，再用 t 抵消计数。"
       ],
       "explanation": "**核心思路：字符计数**\n\n两个字符串互为字母异位词，当且仅当每个字符在两边出现的次数都相同。可以先遍历 `s` 建立计数字典，再遍历 `t` 逐个减一；如果某个字符不存在或计数已经为 0，就可以立即返回 false。\n\n初学时也可以使用排序：`sorted(s) == sorted(t)`，代码很短，但排序会把时间复杂度提高到 O(n log n)。计数法只需一次线性扫描。\n\n**参考代码**\n```python\nclass Solution:\n    def isAnagram(self, s: str, t: str) -> bool:\n        if len(s) != len(t):\n            return False\n        counts = {}\n        for char in s:\n            counts[char] = counts.get(char, 0) + 1\n        for char in t:\n            if counts.get(char, 0) == 0:\n                return False\n            counts[char] -= 1\n        return True\n```\n\n**复杂度**：时间 O(n)，空间 O(k)，k 为不同字符的数量。"
+    },
+    {
+      "id": "top-k-frequent",
+      "title": "347. 前 K 个高频元素",
+      "difficulty": "中等",
+      "description": "给你一个整数数组 `nums` 和一个整数 `k`，请你返回其中出现频率**前 k 高**的元素。你可以按**任意顺序**返回答案。\n\n题目数据保证答案唯一，换句话说，数组中前 k 个高频元素的集合是唯一的。",
+      "examples": [
+        {"input": "nums = [1,1,1,2,2,3], k = 2", "output": "[1,2]"},
+        {"input": "nums = [1], k = 1", "output": "[1]"}
+      ],
+      "entry": "topKFrequent",
+      "starter": "class Solution:\n    def topKFrequent(self, nums: list[int], k: int) -> list[int]:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[1, 1, 1, 2, 2, 3], 2], "expected": [1, 2]},
+        {"args": [[1], 1], "expected": [1]},
+        {"args": [[-1, -1, 2, 2, 2, 3], 2], "expected": [2, -1]},
+        {"args": [[5, 5, 5, 5], 1], "expected": [5]},
+        {"args": [[1, 1, 1, 2, 2, 3, 3, 3, 3], 2], "expected": [3, 1]}
+      ],
+      "compare": "sorted",
+      "hints": [
+        "要比较「频率」，第一步自然是先知道每个元素出现了几次。",
+        "用哈希表统计每个元素的出现次数后，问题变成：从若干 (元素, 次数) 对中取出次数最大的 k 个。",
+        "可以按次数对计数结果排序后取前 k 个；也可以用「桶」——以次数为下标建桶，从高频桶往低频桶收集 k 个元素，时间复杂度为 O(n)。"
+      ],
+      "explanation": "**核心思路：哈希计数 + 按频率排序取前 k**\n\n第一步用哈希表统计每个元素的出现次数，这一步是本章计数字典模板的直接应用。第二步要从所有 (元素, 次数) 对中挑出次数最大的 k 个：把计数项按次数从大到小排序，取前 k 个元素即可。\n\n**算法步骤**\n1. 遍历 `nums`，用字典 `counts` 记录每个元素的出现次数。\n2. 把 `counts.items()` 按次数降序排序。\n3. 取排序后前 k 项的元素组成答案返回。\n\n**参考代码**\n```python\nclass Solution:\n    def topKFrequent(self, nums, k):\n        counts = {}\n        for x in nums:\n            counts[x] = counts.get(x, 0) + 1\n        items = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)\n        return [num for num, _ in items[:k]]\n```\n\n**复杂度**：设数组长度为 n、不同元素个数为 m。计数 O(n)，排序 O(m log m)，总时间 O(n + m log m)；空间 O(m)。\n\n**进阶：桶排序优化到 O(n)**\n\n因为频率最大不超过 n，可以建一个长度为 n + 1 的桶数组 `buckets`，`buckets[f]` 存放所有出现 f 次的元素。然后从下标 n 往 1 扫描，依次收集桶内元素，凑满 k 个就停止。总时间 O(n)，空间 O(n)。\n\n注意：本题的判题器对返回顺序不敏感，只要返回的元素集合正确即可通过。"
+    },
+    {
+      "id": "product-except-self",
+      "title": "238. 除自身以外数组的乘积",
+      "difficulty": "中等",
+      "description": "给你一个整数数组 `nums`，返回一个数组 `answer`，其中 `answer[i]` 等于 `nums` 中除 `nums[i]` 之外其余各元素的乘积。\n\n题目数据**保证**数组 `nums` 之中任意元素的全部前缀元素和后缀的乘积都在 **32 位**整数范围内。\n\n请**不要使用除法**，且在 O(n) 时间复杂度内完成此题。\n\n**进阶：** 你可以在 O(1) 的额外空间复杂度内完成此题吗？（出于对空间复杂度分析的目的，输出数组**不被视作**额外空间。）",
+      "examples": [
+        {"input": "nums = [1,2,3,4]", "output": "[24,12,8,6]"},
+        {"input": "nums = [-1,1,0,-3,3]", "output": "[0,0,9,0,0]"}
+      ],
+      "entry": "productExceptSelf",
+      "starter": "class Solution:\n    def productExceptSelf(self, nums: list[int]) -> list[int]:\n        # 在这里编写你的代码\n        pass\n",
+      "tests": [
+        {"args": [[1, 2, 3, 4]], "expected": [24, 12, 8, 6]},
+        {"args": [[-1, 1, 0, -3, 3]], "expected": [0, 0, 9, 0, 0]},
+        {"args": [[2, 3]], "expected": [3, 2]},
+        {"args": [[0, 0]], "expected": [0, 0]},
+        {"args": [[-2, -3, -4]], "expected": [12, 8, 6]}
+      ],
+      "compare": "exact",
+      "hints": [
+        "对每个下标 i，答案是「i 左边所有数的乘积」乘以「i 右边所有数的乘积」——左右两部分可以分开计算。",
+        "先正向遍历一遍，把「左侧乘积」写进答案数组；右侧乘积不必再开一个数组，可以用一个变量在反向遍历时滚动维护。",
+        "反向遍历时维护变量 right（初始为 1）：answer[i] 先乘上 right，再把 right 更新为 right * nums[i]。"
+      ],
+      "explanation": "**核心思路：左右两遍前缀积扫描**\n\n对每个下标 i，「除自身以外的乘积」可以拆成两部分：**i 左侧所有元素的乘积 × i 右侧所有元素的乘积**。这两部分都可以在线性时间内递推出来，完全不需要除法，也天然避开了「数组中有 0 时除法失效」的问题。\n\n**算法步骤**\n1. 第一遍从左到右：用一个变量 `left`（初始为 1）表示当前下标左侧所有元素的乘积。先把 `answer[i] = left`，再令 `left *= nums[i]`。这样 `answer[i]` 就是 i 左侧的乘积。\n2. 第二遍从右到左：用一个变量 `right`（初始为 1）表示当前下标右侧所有元素的乘积。先令 `answer[i] *= right`，再令 `right *= nums[i]`。此时 `answer[i]` 就是左右两部分的乘积，即最终答案。\n\n**参考代码**\n```python\nclass Solution:\n    def productExceptSelf(self, nums):\n        n = len(nums)\n        answer = [1] * n\n        left = 1\n        for i in range(n):\n            answer[i] = left\n            left *= nums[i]\n        right = 1\n        for i in range(n - 1, -1, -1):\n            answer[i] *= right\n            right *= nums[i]\n        return answer\n```\n\n**复杂度**：时间 O(n)，两次线性扫描；空间 O(1)，输出数组不计入额外空间。\n\n注意赋值的顺序：每遍都是「先用当前累积值，再乘上 nums[i]」，这样累积值始终只包含「另一侧」的元素，不会把自身算进去。"
     }
   ]
 }
