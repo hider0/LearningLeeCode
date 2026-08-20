@@ -104,7 +104,7 @@ python app.py        # Windows 也可以直接双击“启动刷题训练器.bat
 app.py                 # 后端服务（题目/判题/错题/追问/诊断 API，仅标准库）
 runner.py              # 判题运行器：子进程中执行用户代码并对拍用例
 problems/*.json        # 题库，一个文件一章，按文件名排序
-guide/*.md              # 面向初学者的分章详细教程
+guide/*.md              # 面向初学者的分章详细教程（python-basics.md 为零基础 Python 速成）
 static/index.html      # 前端单页（内联 CSS/JS）
 config.example.json    # 大模型配置示例，复制为 config.json 后填写
 data/progress.json     # 运行时生成：通过记录、错题本、追问笔记（不入库）

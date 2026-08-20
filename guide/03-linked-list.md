@@ -1,5 +1,17 @@
 # 第 3 章：链表
 
+## 学前准备（零基础）
+
+零基础读者请先读 [Python 零基础速成](python-basics.md) 的第 1、2、6、7 节，再回到本章。
+
+- 变量与赋值：理解 `previous = current` 只是让两个变量指向同一个结点，而不是复制结点；
+- `while current:` 循环：知道它在 `current` 为 `None` 时结束，这是遍历链表的常用写法；
+- `None` 的含义：用 `None` 表示链表末尾或空结点，并能区分 `current is None` 与 `current.next is None`；
+- 函数 `def` 与 `return`：会用 `def reverse(head):` 定义函数，并在循环结束后 `return previous`；
+- `class Solution` 模板：知道题目要求的答案写在 `class Solution` 的方法里，LeetCode 会替你把链表构造好再调用。
+
+已经会 Python 的读者可直接跳到本章目标。
+
 ## 本章目标
 
 - 理解链表结点通过 `next` 连接，而不是连续存储；
